@@ -23,11 +23,11 @@ cd "$work"
 # checkin a new file
 echo "- add"
 echo test > test1.txt
-ss add test1.txt
+ss add -c '' test1.txt
 test \! -w test1.txt
 
 echo "- add 2"
-not ss add test1.txt 2> /dev/null
+not ss add -c '' test1.txt 2> /dev/null
 
 # checkout the file
 echo "- checkout"
@@ -42,8 +42,13 @@ test \! -w test1.txt
 
 echo "- checkin 2"
 echo > test2.txt
-not ss ci test2.txt 2> /dev/null
+not ss ci -c '' test2.txt 2> /dev/null
 rm test2.txt
+
+echo "- checkin 3"
+ss co test1.txt
+VISUAL="false" not ss ci test1.txt 2> /dev/null
+VISUAL="touch -t 197001010000" ss ci test1.txt
 
 # get
 echo "- get"
@@ -101,12 +106,12 @@ test \! -f test1.txt
 echo "- delete 2"
 touch deltwice
 not ss delete deltwice 2> /dev/null
-ss add deltwice
+ss add -c '' deltwice
 ss co deltwice
 not ss delete deltwice 2> /dev/null
 ss delete -f deltwice
 touch deltwice
-ss add deltwice
+ss add -c '' deltwice
 not ss delete deltwice 2> /dev/null
 ss delete -f deltwice
 
@@ -119,7 +124,7 @@ ss add -c 'multiple add' test2.txt test3.txt
 echo "- recursive add"
 mkdir temp
 touch temp/test4.txt
-expr "`ss add .`" = "adding ./temp/test4.txt" > /dev/null
+expr "`ss add -c '' .`" = "adding ./temp/test4.txt" > /dev/null
 
 # multiple checkout
 echo "- multiple checkout"
@@ -135,11 +140,11 @@ ss ci -c 'multiple checkin' test2.txt test3.txt
 
 # recursive checkin
 echo "- recursive checkin"
-expr "`ss ci .`" = "checking-in ./temp/test4.txt" > /dev/null
+expr "`ss ci -c '' .`" = "checking-in ./temp/test4.txt" > /dev/null
 
 echo "- recursive checkin 2"
 touch test1.txt
-expr "`ss ci .`" = "? ./test1.txt" > /dev/null
+expr "`ss ci -c '' .`" = "? ./test1.txt" > /dev/null
 rm test1.txt
 
 # multiple history
@@ -201,7 +206,7 @@ test \! -d temp
 fcheck()
 {
     cp "$1" "$1.tmp"
-    ss add "$1"
+    ss add -c '' "$1"
     rm -f "$1"
     ss get "$1" > /dev/null
     cmp -s "$1" "$1.tmp"

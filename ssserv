@@ -475,12 +475,20 @@ sub ssRmPath($)
   return ssRmPath(dirname($dir));
 }
 
+sub fixComment($)
+{
+  my $comment = shift;
+  return "-" if(!defined($comment));
+  return $1 if($comment =~ /^[\@\?-](.*)/);
+  return $comment;
+}
+
 sub add($)
 {
   # check arguments
   my ($path, $comment) = decArr(shift);
   $path or return synFail("expecting a path");
-  $comment = "-" if(!$comment);
+  $comment = fixComment($comment);
 
   # map the path
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
@@ -517,7 +525,7 @@ sub checkIn($)
   # check arguments
   my ($path, $comment) = decArr(shift);
   $path or return synFail("expecting a path");
-  $comment = "-" if(!$comment);
+  $comment = fixComment($comment);
 
   # map the path
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});

@@ -25,6 +25,7 @@ use Cksum;
 my $VERSION	= "0.4";
 my $RC_PATH	= ".ssrc";
 my $D_PATH	= "$ENV{HOME}/.ss.d";
+my $EDITOR	= $ENV{VISUAL} || $ENV{EDITOR} || "vi";
 my $LEVELS	= 5;
 my %PARAMS;
 
@@ -387,7 +388,7 @@ sub getDir($$)
     $files{rel2abs($file)} = 1;
 
     if(-w $file) {
-      msg("M $file");
+      msg("O $file");
     } else {
       getFile($remote, $file) and msg("U $file");
     }
@@ -425,7 +426,7 @@ sub get(@)
     my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
 
     if(-f $file && -w $file) {
-      msg("M $file");
+      msg("O $file");
     } else
     {
       if(-f $file && -r $file)
@@ -547,7 +548,7 @@ sub checkInExt($$)
 sub checkIn(@)
 {
   my ($flags, @files) = @_;
-  my $comment = $flags->{"c"} || "";
+  my $comment = readComment("checkin", $flags->{"c"});
 
   filedirExec(
     sub
@@ -585,7 +586,7 @@ sub addFile($$)
 sub add(@)
 {
   my ($flags, @files) = @_;
-  my $comment = $flags->{"c"} || "";
+  my $comment = readComment("add", $flags->{"c"});
 
   filedirExec(
     sub
@@ -763,6 +764,69 @@ sub cat(@)
     print STDOUT "==== $file ====\n" if($header);
     catFile($file);
   }
+}
+
+sub genTemplate($)
+{
+  my $action = shift;
+  my $file = tmpnam() or return undef;
+
+  open(FD, ">$file") or return undef;
+  print FD
+      qq{# Enter a comment for $action\n} .
+      qq{# Empty comment lines are removed. } .
+      qq{Formatting is NOT preserved.\n};
+  close(FD);
+
+  return $file;
+}
+
+sub readTemplate($)
+{
+  my $file = shift;
+  my $text = "";
+
+  open(FD, "<$file") or return undef;
+  while(<FD>)
+  {
+    next if(/^\s*$/ or /^\s*\#/);
+    $text .= $_;
+  }
+  close(FD);
+  chomp($text);
+  
+  # uniform spaces
+  $text =~ s/[\s\n]+/ /mg;
+
+  return $text;
+}
+
+sub mTime($)
+{
+  return (stat(shift))[9];
+}
+
+sub readComment($$)
+{
+  # try with the command line first
+  my ($action, $comment) = @_;
+  return $comment if(defined($comment));
+
+  # generate a template
+  my $file = genTemplate($action) or fail($!);
+  my $itime = mTime($file);
+
+  # invoke the editor
+  system("$EDITOR -- '$file'");
+  my $ntime = mTime($file);
+  $comment = readTemplate($file);
+  unlink($file) or fail($!);
+
+  # check for changes
+  fail("$action: file not changed, giving up") if($itime == $ntime);
+  fail($!) unless(defined($comment));
+
+  return $comment;
 }
 
 
