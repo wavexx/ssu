@@ -109,6 +109,20 @@ ss cat test1.txt#1 > /dev/null
 not ss cat test1.txt@0 2> /dev/null
 ss cat test1.txt@alabel > /dev/null
 
+# go on with diff
+echo "- diff 2"
+echo "rev1" > difftest
+ss add -c '' difftest
+test -z "`ss diff difftest`"
+test -z "`ss diff difftest#1`"
+ss co difftest
+echo "rev2" > difftest
+ss diff difftest | sed -e '1d' > difftest1
+ss diff difftest#1 | sed -e '1d' > difftest2
+cmp -s difftest1 difftest2
+rm difftest1 difftest2
+ss delete -f difftest
+
 # go on with label
 echo "- label 2"
 echo "rev1" > labeltest

@@ -645,13 +645,15 @@ sub revert(@)
     @files);
 }
 
-sub diffFile($@)
+sub diffFile($$$)
 {
-  my ($file, $flags) = @_;
+  my ($flags, $file, $version) = @_;
+  $version = $version || "";
+  my $arg = ((cksumFile($file) || "") . $version);
 
   # request the head file
   my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
-  sendStr($Proto::GET, encArr($remote, cksumFile($file)));
+  sendStr($Proto::GET, encArr($remote, $arg));
   my ($c, $str) = recvStr();
   defined($c) or protoFail();
   return 1 if($c != $Proto::XFER);
@@ -665,11 +667,11 @@ sub diffFile($@)
   recvFile($size, $temp) or protoFail();
 
   # diff the output
-  print STDOUT "==== $remote - $file ====\n";
+  print STDOUT "==== $remote$version - $file ====\n";
   STDOUT->flush();
 
   my @args = ("diff");
-  push(@args, "-$flags") if($flags);
+  push(@args, "-$flags->{'d'}") if($flags->{"d"});
   my $ret = system(@args, "--", $temp, $file);
   unlink($temp);
   return !$ret;
@@ -678,18 +680,22 @@ sub diffFile($@)
 sub diff(@)
 {
   my ($flags, @files) = @_;
-  my $df = $flags->{"d"} || "";
 
-  filedirExec(
-    sub
-    {
-      diffFile($_, $df);
-    },
-    sub
-    {
-      diffFile($_, $df) if(-f $_);
-    },
-    @files);
+  foreach my $file(@files)
+  {
+    ($file, my $version) = fileVersion($file);
+
+    filedirExec(
+      sub
+      {
+	diffFile($flags, $_, $version);
+      },
+      sub
+      {
+	diffFile($flags, $_, $version) if(-f $_);
+      },
+      $file);
+  }
 }
 
 sub deleteFile($$)
@@ -786,8 +792,7 @@ sub genTemplate($)
 
   open(FD, ">$file") or return undef;
   print FD
-      qq{# Enter a comment for $action\n} .
-      qq{# Empty comment lines are removed. } .
+      qq{# Enter a comment for $action. } .
       qq{Formatting is NOT preserved.\n};
   close(FD);
 

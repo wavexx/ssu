@@ -465,9 +465,9 @@ status files:
 	Shows file status (head revision number, modification dates, etc).
 
 diff [-d] files:
-	Diffs the files against latest repository version. -d can be used to
-	pass local options to the diff executable (``ss diff -du`` gets you
-	unified diffs).
+	Diffs local files against latest repository version (or and older
+	version using revision syntax). -d can be used to pass local options to
+	the diff executable (``ss diff -du`` gets you unified diffs).
 
 delete [-f] files:
 	Deletes the specified files in the repository and locally. -f forces

@@ -7,7 +7,7 @@ SSU 0.5:
 
 	* -r (reopen) flag implemented for revert.
 
-	* cat and label can now refer to old file versions.
+	* cat, label and diff can now refer to old file versions.
 
 	* Minor cleanups.
 
