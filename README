@@ -1,0 +1,507 @@
+===================================
+SSU - `Textual` SourceSafe for Unix
+===================================
+
+.. contents::
+
+
+Introduction
+============
+
+Purpose
+-------
+
+Until now, Unix developers which required access to a SourceSafe repository had
+to use a Windows machine or, in the lucky case that the architecture was
+standard enough, pay another time. SSU provides access to local *and* remote
+SourceSafe repositories through TCP, to any platform, and for **free**,
+alleviating the pain.
+
+Requirements
+------------
+
+SSU is divided into two components: a command-line Unix client and a
+windows-based server which runs on a machine with repository access. A single
+windows machine can multiplex any number of repositories and clients.
+
+The Unix client "ss" requires only Perl >= 5.4 and network TCP port 5901 access
+to the server. The windows server "ssserv" requires Perl >= 5.6, but has only
+been tested with ActivePerl_ 5.8 (5.6 experienced stability problems). The
+server runs as a stand-alone process unless you use some service helpers
+(configuration as such is not described here). ssserv also requires the
+SourceSafe command-line client to be installed locally (usually installed
+automatically with the SourceSafe software).
+
+Only SourceSafe 6.0 has been tested.
+
+
+Development status
+------------------
+
+I'd hardly say beta quality. SSU supports and uniforms a good subset of the
+SourceSafe features and has proven to be stable when used by a team of 6
+developers accessing a single server. SSU has been developed since three weeks
+only, thus lacks a significant amount of testing: it should *not* be considered
+of production quality.
+
+The adoption of Perl was mainly due to its presence in server environments (ss
+works with Perl 5.4 which is still largely installed), but may eventually be
+replaced with something more readable in the future.
+
+
+Installation
+============
+
+ssserv (server)
+---------------
+
+ssserv should be installed on a windows machine with repository
+access. Multiple repositories can be served from the same server.
+
+1) First install ActivePerl_ >= 5.8 and SourceSafe on the machine.
+
+2) Unpack the source distribution in the target directory
+   (eg: ``C:\Program Files\SSU``).
+
+3) Create a "ssserv.ini" file in the same directory containing::
+
+     HOME=C:\Program Files\SSU\HOME
+     MAP=db C:\\DATA\\SSAFE_DB
+
+   Where HOME is the working directory and MAP_ is an association list of names
+   to database paths (note that backslashes should be escaped, the final one is
+   *omitted*). ``C:\\DATA\\SSAFE_DB`` should be replaced with the directory
+   containing your SourceSafe database. Setting MAP correctly is critical.
+
+4) Create a "ssserv.bat" file in the same directory containing::
+
+     set "PATH=%PATH%;C:\Program Files\Microsoft Visual Studio\Common\VSS\win32"
+     perl ssserv
+
+   Setting the PATH is not necessary if the "ss.exe" executable is already
+   visible. You may also need to specify a full path to the Perl executable if
+   you disabled the relative option in the ActivePerl installer.
+
+5) Execute the file. Logging-out may kill the process depending on your
+   operating system (2000/XP), so proceed accordingly.
+
+
+ss (client)
+-----------
+
+Copy "ss" to prefix/bin (where prefix is usually /usr/local), and ``*.pm``
+files in prefix/lib/ss (/usr/local/lib/ss/Maps.pm etc). "ss" should be
+executable.
+
+For each user create ``~/.ssrc`` (mode 600), containing::
+
+  USER=username
+  PASS=password
+  HOST=hostname
+  HOME=/home/username/projects/
+  MAP=dirname db/projectname
+
+Where HOME is an *absolute* path to an existing directory that will contain
+your SourceSafe projects, and MAP is an association list of directories to
+databases (see the MAP_ configuration reference).
+
+In the above example we assume that ss will have control of all the
+/home/username/projects tree, and the directory /home/username/projects/dirname
+will actually contain the db/projectname project (where you recall DB was
+configured server-side as ``C:\\DATA\\SSAFE_DB``, yelding ``C:\DATA\SSAFE_DB
+$/projectname`` in SourceSafe syntax).
+
+Execute ``ss get`` to bootstrap your tree.
+
+
+Configuration
+=============
+
+MAP
+---
+
+Developers with experience with Perforce_ will be delighted to know that MAP
+works in the same concept as the "View" field (in fact, the Perforce `Workspace
+documentation`_ may be worth reading).
+
+Basically MAP is a list of pairs, each one containing the source path, and the
+destination path::
+
+  MAP=source destination
+
+Multiple mappings can be specified::
+
+  MAP=source destination source destination
+
+or::
+
+  MAP=source destination \
+      source destination
+
+If either source or destination contain a space, you should quote the
+definition. You should also escape all backslashes (mostly for windows paths),
+eg::
+
+  MAP="a source" desti\\nation
+
+The source path is always relative to the HOME directory. When a path matches
+the source mapping it's translated into destination. This feature can be used
+to uniform the project workspace regardless of the repository status::
+
+  MAP=project/dir db/oldproject/dir \
+      project     db/newproject
+
+Unfortunately MAP is not as powerful as Perforce's. You can have overlapping
+patterns, but the first one that matches will be used. You can also only map
+directories, and there's no wildcards.
+
+Under ssserv (on windows) `destination` is limited to a fully qualified
+database path. Yet you can still alter the environment server-side::
+
+  MAP=db/old C:\\DB1\\SSAFE_DB \
+      db     C:\\DB2\\SSAFE_DB \
+      db2    C:\\DB3\\SSAFE_DB
+
+
+ssserv.ini reference
+--------------------
+
+HOME:
+	Working directory (mandatory). Should not be shared or modified during
+	execution. When missing it's created automatically.
+
+MAP:
+	Mappings (See MAP_, mandatory). You can specify any amount of
+	databases, but they must *all* share the same users, with the *same*
+	passwords and access rights. This doesn't mean you can't have multiple
+	users: only that if user "claire" with password "aso" is present in the
+	first database, all the other mapped ones should have the same user
+	"claire" configured with the same password "aso" too. As ssserv
+	provides access to multiple databases in an uniform way, this makes
+	sense. Failure in doing so will result in deadlocks (thanks to the
+	crappy "ss.exe" interface). If you need to clearly separate two
+	databases you can always run two ssserv instances on different ports.
+
+PORT:
+	Listening port (defaults to 5901).
+	Multiple servers can be run on the same machine by specifying different
+	ports for each one.
+
+PRUNE:
+	Automatic hierarchy pruning. Defaults to 0 (disabled). As SSU does not
+	care about "projects", new projects will be created automatically upon
+	addition of new files. If pruning is enabled, when all files in a
+	directory are removed the project is removed as well. Consider however
+	that empty directories are ignored by the client, and removing the same
+	directory twice will destroy the history in SourceSafe. Should be
+	enabled only when "project pollution" is an issue for Visual SourceSafe
+	(the windows client). The default (disabled) is recommended.
+
+
+.ssrc reference
+---------------
+
+USER:
+	Username (mandatory).
+
+PASS:
+	Password (mandatory).
+
+HOST:
+	Hostname or IP address of the machine running ssserv (mandatory).
+
+HOME:
+	ss home directory (all mappings are under this directory, mandatory).
+	Must be *absolute*.
+
+MAP:
+	Mappings (mandatory, see MAP_).
+
+PORT:
+	Server port. Defaults to 5901.
+
+QUIET:
+	Silent mode. Defaults to 0 (disabled).
+
+PRUNE:
+	Automatic hierarchy pruning. Defaults to 1 (enabled). When pruning is
+	enabled, and all files in a directory are removed, the directory is
+	removed as well; up to (but not including) HOME.
+
+
+Playground
+==========
+
+The basics
+----------
+
+Upon correct configuration, each client can extract a read-only copy of the
+required files by using the ``ss get`` command::
+
+  $ ss get dir
+  U dir/test.txt
+
+Without arguments, get updates all the mappings you have configured. ``ss get``
+is also used to update the source tree with the latest version available in the
+repository. ``ss get`` will *never* modify writable files (unlike cvs, merge is
+never attempted for now).
+
+To modify a file you use the ``checkout`` command::
+
+  $ ss checkout dir/test.txt
+
+``ss checkout`` will update the specified file/files to the latest revision,
+make them writable and lock the repository. Under SourceSafe only a single user
+at a time can have a file checked-out/locked. The "multiple-checkouts" option
+in SourceSafe is avoided at all costs, and isn't used at all by SSU (See
+`Future developments`_).
+
+When done with editing, you can ``checkin`` the file::
+
+  $ ss checkin dir/test.txt
+
+Optionally, you can specify a comment with "-c"::
+
+  $ ss checkin -c 'testing the client' dir/test.txt
+
+All-in-all:
+
+* ``get`` updates your read-only files
+
+* ``checkout`` makes them writable, locking the repository.
+
+* ``checkin`` will commit your changes, and return the file to read-only
+  state.
+
+* ``checkin`` can be used to add new files in the repository. Just ``checkin``
+  a new writable file under the controlled tree.
+
+* All commands support one or more files.
+
+* You should try to avoid keeping unused files locked (checked-out).
+
+
+Limitations
+-----------
+
+ss does a great job in uniforming SourceSafe interaction, but still it's
+limited (due to SourceSafe limitations or development status) in some ways:
+
+* SSU should be considered **beta** software.
+
+* Security is actually just an option. Due to command-line madness and
+  inconsistencies of the "ss.exe" interface, the access is verified only on the
+  first mapped database, and used all along. ".." paths can be used to fool the
+  server-side mapping process, as path canonalization is currently poorly
+  implemented. The server process needs total access rights to the file system
+  to be able to use the "ss.exe" command for all users.
+
+* Only text files are supported. Line-endings are correctly converted, but
+  binary files will get corrupted (if even recognised as such by SourceSafe).
+
+* No atomic commits. The ability of doing so in the command line is purely
+  syntactic sugar.
+
+* Multiple check-outs of a single file are a serious problem in the "ss.exe"
+  interface. Basically, there's not enough consistency to perform unattended
+  commits later. Also, the merge logic of SourceSafe simply stinks. Read
+  `Future developments`_. For now, ``chmod +w`` manually and then *remove the
+  file* if you need random edits.
+
+* The case of the filename is preserved (eg: ``File.txt``), but the command
+  line client doesn't try to be smart and doesn't prevent you from getting
+  ``FiLe.TxT`` at the same time, although the latter will be removed when
+  updating recursively.
+
+* Recursive updates may have problems when multiple server-side mappings for
+  the same database are specified. This should be fixed.
+
+* SSU only implements a subset of the entire SourceSafe features, focusing on
+  inter-operation (query capabilities are limited to 'history' and 'status').
+
+
+Future developments
+-------------------
+
+The big mayor step in the SSU development will be a new (and possibly better)
+cooperation model for SourceSafe. As already explained, two users cannot
+checkout the same file at the same time and the "multiple checkouts" option of
+SourceSafe just isn't an option.
+
+My intention is to provide an alternate checkout method to the client
+interface. When the alternate checkout method is selected (manually or
+automatically), the original file is stored in ``~/.ss.d``, and the file is
+chmodded read/write. Further updates through get will check for these files,
+and merge the changes by using them as common ancestors (thus moving the merge
+issue locally, using diff3 or the user's favoured merge tool). Check-ins will
+simply verify that the latest file was merged and locking the file in the
+repository for a couple of seconds.
+
+SSU however is not meant to be a fully fledged revision control system for
+Unix, just an *aid* where SourceSafe access is required.
+
+
+Securing the transport
+----------------------
+
+You can layer your connections through SSL, for example using OpenSSH:
+
+  $ ssh -N proxy -L 5901:server:5901
+
+and modify ``~/.ssrc`` to connect to localhost instead of connecting to the
+server directly. By using the ssh's -C flag you can also get compression for
+free.
+
+Again, note that this gives you a secure *transport* (for example for working
+off-site), *not* a secure server.
+
+
+Test suite
+----------
+
+Although aimed at regression testing, you can use the "check" script shipped
+within the distribution to perform some very basic tests on the "ss"
+interface.
+
+"ss" should be installed and configured to access a virgin repository. The
+first argument of "check" should be a mapped inexistent directory.
+
+
+Command line reference
+======================
+
+ssserv
+------
+
+-f file:
+	Specify a different configuration file.
+
+
+ss
+--
+
+Global options
+~~~~~~~~~~~~~~
+
+-q:
+	Quiet
+
+-v:
+	Verbose
+
+-f file:
+	Specify a different configuration file. The file is searched in the
+	current directory, and up to 5 levels. Alternatively, if the file isn't
+	found, the environment variable `SSCONFIG` is consulted for an
+	alternate path.
+
+Commands
+~~~~~~~~
+
+get files:
+	Get an updated read-only version of the specified files, or of the
+	entire tree if no files are specified. Unlike SourceSafe, files are
+	automatically removed locally when they're deleted on the repository.
+	All read-only files under HOME should be considered property of ss and
+	*removable at any time*. Create read-write files to avoid files being
+	removed when updating.
+
+cat [-h] files:
+	Print in the standard-output the contents of the specified files. -h
+	can be used to add an header if multiple files are specified.
+
+checkout files:
+	Get an updated read/write version of the specified files, locking the
+	repository.
+
+checkin [-c] files:
+	Adds or check-ins the specified files, making them read-only again and
+	unlocking the repository. A comment can be added with the -c flag.
+
+revert files:
+	Revert changes made to the specified files, unlocking the repository
+	without changes.
+
+dir [-a] files:
+	Remote directory listing. With -a, does not translate the output in
+	local syntax.
+
+history [-m] files:
+	Shows the history for the selected files. -m specifies a maximal number
+	of entries to be displayed.
+
+status files:
+	Shows file status (head revision number, modification dates, etc).
+
+diff [-d] files:
+	Diffs the files against latest repository version. -d can be used to
+	pass local options to the diff executable (``ss diff -du`` gets you
+	unified diffs).
+
+delete files:
+	Deletes the specified files in the repository and locally.
+
+label -l <label> files:
+	Tag/label the *head version* of the specified files using the
+	specified label.
+
+version:
+	Show SSU version information.
+
+
+Aliases
+~~~~~~~
+
+Some aliases are provided for users coming from different revision systems:
+
+get:
+	sync update up
+
+cat:
+	print
+
+checkin:
+	ci submit
+
+checkout:
+	co edit
+
+revert:
+	undo unedit undocheckout
+
+dir:
+	ls
+
+delete:
+	rm
+
+history:
+	filelog log
+
+status:
+	properties
+
+label:
+	tag
+
+
+Download
+========
+
+SSU is located at http://www.yuv.info/~wavexx/hacks/ssu/ and distributed under
+the terms of the `GNU LGPL`_ license without *any* warranty. SSU is
+copyright(c) 2005 of Yuri D'Elia <wavexx@users.sf.net>.
+
+
+Support
+=======
+
+Subscribe to `ssu-users` by sending an empty email to <minimalist@yuv.info>
+with the subject containing `subscribe ssu-users`, or contact the
+author. English proof-reading is greatly appreciated.
+
+
+.. _ActivePerl: http://www.activestate.com/Products/ActivePerl/
+.. _Perforce: http://www.perforce.com/
+.. _Workspace documentation: http://www.perforce.com/perforce/doc.042/manuals/p4guide/04_details.html#1100338
+.. _GNU LGPL: http://www.gnu.org/licenses/lgpl.html

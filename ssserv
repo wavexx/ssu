@@ -1,0 +1,628 @@
+#!/usr/bin/env perl
+# ssserv - ssu perl server
+# Copyright(c) 2005 of wave++ (Yuri D'Elia)
+# Distributed under GNU LGPL without ANY warranty.
+use strict;
+use Parse;
+use Maps;
+use Proto;
+use File::Basename qw{basename dirname};
+use File::Temp qw{tempfile tempdir};
+use File::Path qw{mkpath rmtree};
+use Getopt::Std qw{getopts};
+use Socket;
+require File::Spec;
+
+# Some defaults
+my $VERSION	= "0.3";
+my $INI_PATH	= "ssserv.ini";
+my %PARAMS;
+my %USER;
+
+# code to handler maps
+my %FMAP =
+(
+  $Proto::GET		=> \&get,
+  $Proto::CHECKOUT	=> \&checkOut,
+  $Proto::CHECKIN	=> \&checkIn,
+  $Proto::DIR		=> \&dirListing,
+  $Proto::REVERT	=> \&revert,
+  $Proto::DELETE	=> \&delete,
+  $Proto::HISTORY	=> \&history,
+  $Proto::STATUS	=> \&status,
+  $Proto::LABEL		=> \&label
+);
+
+
+sub fail(@)
+{
+  $_ = join(" ", @_);
+  print STDERR (basename($0) . ": $_\n");
+  exit 1;
+}
+
+sub getRelMap($$)
+{
+  my ($file, $maps) = @_;
+  (my $map, my $dir, $file) = getMap($file, $maps);
+  ($map && $dir && $file) or return undef;
+  return ($dir, $file);
+}
+
+sub main()
+{
+  # command line overrides
+  my %flags;
+  getopts("f:", \%flags);
+  my $ini = $flags{"f"} || $ENV{"SSCONFIG"} || $INI_PATH;
+
+  # initialize the params
+  %PARAMS = init($ini);
+
+  # prepare work directories
+  $PARAMS{TEMP} = File::Spec->catdir($PARAMS{HOME}, "tmp");
+  $PARAMS{WORK} = File::Spec->catdir($PARAMS{HOME}, "wrk");
+  mkpath($PARAMS{TEMP});
+  mkpath($PARAMS{WORK});
+  (-d $PARAMS{TEMP} and -d $PARAMS{WORK}) or
+      fail("unable to create work directories");
+  
+  # start the server
+  server();
+}
+
+sub init($)
+{
+  my ($ini) = @_;
+
+  my %data;
+  parse($ini, \%data) or
+      fail("cannot find \"$ini\"");
+
+  # check for needed data
+  foreach my $param("HOME", "MAP") {
+    defined $data{$param} or
+	fail("missing parameter \"$param\"");
+  }
+
+  # parse mappings
+  my $maps = parseMaps(0, $data{"MAP"}) or
+      fail("malformed MAP");
+
+  # put data togheter
+  return
+  (
+    PRUNE => (defined($data{"PRUNE"})? $data{"PRUNE"}: 0),
+    PORT => $data{"PORT"} || $Proto::PORT,
+    HOME => $data{"HOME"},
+    MAPS => $maps
+  );
+}
+
+sub msg(@)
+{
+  $_ = join(" ", @_);
+  my @now = localtime(time);
+
+  printf(STDOUT "%04d-%02d-%02d %02d:%02d:%02d %s@%s: %s\n",
+	 $now[5] + 1900, $now[4], $now[3], $now[2], $now[1], $now[0],
+	 (defined $USER{USER}? $USER{USER}: "n/a"), $USER{IP}, $_);
+}
+
+sub server()
+{
+  # listen
+  my $proto = getprotobyname('tcp');
+  socket(my $fd, PF_INET, SOCK_STREAM, $proto) or fail($!);
+  bind($fd, sockaddr_in($PARAMS{PORT}, INADDR_ANY)) or fail($!);
+  listen($fd, SOMAXCONN) or fail($!);
+
+  for(;;)
+  {
+    # accept a connection
+    my $data = accept(my $conn, $fd);
+    next if(!$data);
+
+    # spawn a child
+    my $pid = fork();
+    if(!$pid)
+    {
+      my ($port, $addr) = sockaddr_in($data);
+      setupFd($conn);
+      select($conn);
+      return child($port, $addr);
+    }
+  }
+}
+
+sub child($$)
+{
+  my ($port, $addr) = @_;
+  $USER{IP} = inet_ntoa($addr);
+  $USER{PORT} = $port;
+
+  # perform login immediately
+  sendStr($Proto::INFO, "welcome $USER{IP} to ssserv $VERSION");
+  login() or return 0;
+
+  # main loop
+  while(1)
+  {
+    # fetch the command request
+    my ($code, $str) = recvStr();
+    $code or last;
+
+    # dispatch
+    my $handler = $FMAP{$code};
+    if($handler)
+    {
+      &$handler($str) or last;
+      ssClean();
+    }
+    else {
+      synFail($code, $str);
+    }
+  }
+
+  # terminate the session
+  logout();
+  return 0;
+}
+
+# recoverable syntax error
+sub synFail(@)
+{
+  msg("command not understood:", @_);
+  return sendStr($Proto::ERROR, "command not understood");
+}
+
+# recoverable execution error (exposes the failure)
+sub cmdFail($)
+{
+  msg(@_);
+  return sendStr($Proto::ERROR, shift);
+}
+
+# unrecoverable local error (hides the failure)
+sub intFail($)
+{
+  msg(@_);
+  sendStr($Proto::ERROR, "server failure");
+  return 0;
+}
+
+sub login()
+{
+  # send a login request
+  sendStr($Proto::LOGIN, "identify");
+  my ($user, $pass) = expectCV($Proto::USRPWD, 2);
+  unless(defined $user)
+  {
+    cmdFail(getErr());
+    return 0;
+  }
+
+  # propagate parameters
+  $USER{USER} = $user;
+  $USER{PASS} = $pass;
+
+  # validate the user. as the process is different from standard
+  # ss operations, do it manually. Validation is necessary to avoid
+  # further "Username/Password" requests even with -I-
+  # (for now, use the first available map)
+  $USER{SSDIR} = $PARAMS{MAPS}->[0][1];
+  my ($tmpFd, $batch) = tempfile(DIR => $PARAMS{TEMP}, SUFFIX => ".bat");
+  $tmpFd or intFail("cannot create temporary file");
+
+  # compose the batch
+  print $tmpFd qq
+  {
+    \@echo off
+    cd "$PARAMS{TEMP}"
+    set "SSDIR=$USER{SSDIR}"
+    ss whoami -I- "-Y$USER{USER},$USER{PASS}"
+  };
+  close $tmpFd;
+  
+  # fire it up
+  open(my $batchFd, "|\"$batch\" 2>NUL >NUL");
+  print $batchFd "\n\n";
+  my $ret = close($batchFd);
+  unlink($batch);
+  unless($ret)
+  {
+    cmdFail("invalid username/password");
+    return 0;
+  }
+
+  # prepare user environment (for now we assume each further file to be
+  # present in the _same_ db, this should be fixed).
+  $USER{HOME} = File::Spec->catdir($PARAMS{WORK}, $USER{USER});
+  mkpath($USER{HOME});
+  $USER{WORK} = tempdir(DIR => $USER{HOME});
+  $USER{WORK} or return intFail("cannot setup local environment");
+
+  # everything's ok
+  return sendStr($Proto::READY);
+}
+
+sub logout()
+{
+  # remove everything inside the work dir
+  rmtree($USER{WORK});
+}
+
+# sanitize a string to be suitable in a command
+sub sanitize(@)
+{
+  $_ = join(" ", @_);
+  s/\n/ /g;
+  s/\s+/ /g;
+  return $_;
+}
+
+sub ssExec($@)
+{
+  my ($dir, @args) = @_;
+
+  # prepare the arguments
+  foreach(@args) {
+    s/(^|$)/"/g if(/[\s|&<>]/);
+  }
+  my $argList = join(" ", @args);
+
+  # prepare the environment for ss
+  my ($tmpFd, $batch) = tempfile(DIR => $PARAMS{TEMP}, SUFFIX => ".bat");
+  my ($errFd, $error) = tempfile(DIR => $PARAMS{TEMP});
+  unless($tmpFd and $errFd)
+  {
+    msg("cannot create temporary file/s");
+    return undef;
+  }
+  close($errFd);
+
+  # compose the batch
+  print $tmpFd qq
+  {
+    \@echo off
+    cd "$dir"
+    set "SSDIR=$USER{SSDIR}"
+    ss $argList "-Y$USER{USER},$USER{PASS}"
+  };
+  close $tmpFd;
+  
+  # fire it up
+  my $output;
+  open(my $batchFd, "\"$batch\" 2> \"$error\"|");
+  while(<$batchFd>) {
+    $output .= $_;
+  }
+  my $ret = close($batchFd);
+  unlink($batch);
+
+  # read errors too
+  my $errors;
+  open($errFd, "<$error");
+  while(<$errFd>) {
+    $errors .= $_;
+  }
+  close($errFd);
+  unlink($error);
+
+  return ($ret, $output, $errors);
+}
+
+sub ssStdExec(@)
+{
+  return ssExec($USER{WORK}, @_);
+}
+
+sub ssClean()
+{
+  # clean the working environment, but not the dir!
+  opendir(my $handle, $USER{WORK});
+  my @files = grep {!/^\./} readdir($handle);
+  closedir($handle);
+  foreach(@files) {
+    rmtree(File::Spec->catdir($USER{WORK}, $_));
+  }
+  return 1;
+}
+
+sub get($)
+{
+  # check arguments
+  my ($path, $cksum) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # map and fetch the file
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+  my ($ret, $output, $errors) = ssStdExec("get", "\$/$rel", "-W", "-I-");
+  $ret or return cmdFail("get: " . sanitize($errors));
+
+  # open the file
+  my $buf;
+  my $locCksum = 0;
+  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
+  open(FD, "<$new") or return cmdFail($!);
+  while(<FD>) {
+    $buf .= $_;
+    $locCksum += unpack("%32C*", $_);
+  }
+  close(FD);
+
+  # send the requested file, but only when the checksum is different
+  ((!$cksum || $locCksum != $cksum)?
+   sendBuf($path, $buf): sendStr($Proto::READY)) or cmdFail(getErr());
+}
+
+sub checkOut($)
+{
+  # check arguments
+  my ($path) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # map and fetch the file
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+  my ($ret, $output, $errors) = ssStdExec("checkout", "\$/$rel", "-I-");
+  $ret or return cmdFail("checkout: " . sanitize($errors));
+
+  # send the requested file
+  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
+  sendFile($path, $new) or cmdFail(getErr());
+}
+
+sub realCheckIn($$$)
+{
+  # vanilla checkin
+  my ($path, $rel, $comment) = @_;
+  sendStr($Proto::READY);
+
+  # fetch the file
+  my ($void, $size) = expectCV($Proto::XFER, 2);
+  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
+  recvFile($size, $new) or return cmdFail(getErr());
+
+  # commit
+  my ($ret, $output, $errors) =
+      ssStdExec("checkin", "\$/$rel", "-I-Y", "-C$comment");
+  $ret or return cmdFail("checkin: " . sanitize($errors));
+
+  return sendStr($Proto::READY);
+}
+
+sub ssMkPath($)
+{
+  my $dir = shift;
+  my $base = dirname($dir);
+
+  # check if the directory already exists
+  my ($ret) = ssStdExec("cp", "\$/$dir", "-I-");
+  return 1 if($ret);
+
+  # not quite, check parents
+  if($base ne File::Spec->curdir()) {
+    ssMkPath($base) or return 0;
+  }
+
+  # now try to create it
+  ($ret) = ssStdExec("create", "\$/$dir", "-I-");
+  return ($ret);
+}
+
+sub ssRmPath($)
+{
+  my $dir = shift;
+
+  # check if the directory is empty
+  my ($ret, $output) = ssStdExec("dir", "\$/$dir", "-I-");
+  $ret and !parseListing($dir, $output) or return 0;
+
+  # remove the directory
+  ($ret) = ssStdExec("delete", "\$/$dir", "-I-");
+  $ret or return 1;
+
+  # descent into the parent
+  return ssRmPath(dirname($dir));
+}
+
+sub newCheckIn($$$)
+{
+  my ($path, $rel, $comment) = @_;
+  my $dir = dirname($rel);
+
+  # try to recreate the directory structure first
+  ssMkPath($dir) or return intFail("cannot create directory structure");
+  sendStr($Proto::READY);
+
+  # fetch the file
+  my ($void, $size) = expectCV($Proto::XFER, 2);
+  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
+  recvFile($size, $new) or return cmdFail(getErr());
+
+  # before adding we must set the current project (gah!)
+  my ($ret) = ssStdExec("cp", "\$/$dir", "-I-");
+  $ret or return intFail("cannot set current project");
+  ($ret, my $output, my $errors) = ssStdExec("add", $new, "-I-", "-C$comment");
+  $ret or return cmdFail("checkin: " . sanitize($errors));
+
+  return sendStr($Proto::READY);
+}
+
+sub checkIn($)
+{
+  # check arguments
+  my ($path, $comment) = decArr(shift);
+  $path or return synFail("expecting a path");
+  $comment = "" if(!$comment);
+
+  # checkin implies add, and also recreates the directory structure
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+
+  # see if the file exists and proceed as a standard checkin
+  my ($ret) = ssStdExec("properties", "\$/$rel", "-I-");
+  return realCheckIn($path, $rel, $comment) if($ret);
+
+  # try to add the file
+  return newCheckIn($path, $rel, $comment);
+}
+
+sub parseListing($$)
+{
+  my ($root, $output) = @_;
+  my @files;
+
+  # split for each line first
+  my @lines = split(/\n/, $output);
+  pop(@lines); pop(@lines);
+  
+  my $curdir = undef;
+  foreach(@lines)
+  {
+    if(/^\$\/(.*):$/) {
+      $curdir = $1;
+    } else {
+      if(/^[^\$]/ && (!defined($curdir) || !/ \$\/\Q$curdir\E$/))
+      {
+	if(defined($curdir)) {
+	  push(@files, File::Spec->catdir($curdir, $_));
+	} else
+	{
+	  # a single file was returned
+	  push(@files, File::Spec->catdir(dirname($root), $_));
+	}
+      }
+    }
+  }
+
+  return @files;
+}
+
+sub publicCanon($)
+{
+  # publicize a path name
+  $_ = File::Spec->canonpath(shift);
+  s/\\/\//g;
+  return $_;
+}
+
+sub dirListing($)
+{
+  my ($path) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # extended remap
+  (my $map, $USER{SSDIR}, my $rel) = getMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+  my ($ret, $output) = ssStdExec("dir", "\$/$rel", "-R", "-I-");
+  $ret or return cmdFail("invalid path");
+
+  # parse the listing
+  my $result;
+  foreach(parseListing($rel, $output)) {
+    $result .= (publicCanon(File::Spec->catdir($map, $_)) . "\n");
+  }
+
+  # send the result
+  sendBuf("listing", $result) or cmdFail(getErr());
+}
+
+sub revert($)
+{
+  # check arguments
+  my ($path) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # revert the file
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+  my ($ret, $output, $errors) =
+      ssStdExec("undocheckout", "\$/$rel", "-I-Y", "-W");
+  $ret or return cmdFail("revert: " . sanitize($errors));
+
+  # send the actual file
+  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
+  sendFile($path, $new) or cmdFail(getErr());
+}
+
+sub delete($)
+{
+  # check arguments
+  my ($path) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # delete the file or project
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+  my ($ret, $output, $errors) = ssStdExec("delete", "\$/$rel", "-I-");
+  $ret or return cmdFail("delete: " . sanitize($errors));
+
+  # prune the hierarchy only if requested
+  if($PARAMS{PRUNE})
+  {
+    my $base = dirname($rel);
+    ssRmPath($base) if($base ne File::Spec->curdir());
+  }
+  
+  return sendStr($Proto::READY);
+}
+
+sub history($)
+{
+  # check arguments
+  my ($path, $max) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # map the path
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+
+  # prepare arguments
+  $max = int($max);
+  my @args = ("history", "\$/$rel", "-I-");
+  push(@args, "-#$max") if($max > 0);
+
+  my ($ret, $output, $errors) = ssStdExec(@args);
+  $ret or return cmdFail("history: " . sanitize($errors));
+
+  # send the history
+  sendBuf("history", $output) or cmdFail(getErr());
+}
+
+sub status($)
+{
+  # check arguments
+  my ($path) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # map the path and fetch the status
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+  my ($ret, $output, $errors) = ssStdExec("properties", "\$/$rel", "-I-");
+  $ret or return cmdFail("properties: " . sanitize($errors));
+
+  # send the status
+  sendBuf("status", $output) or cmdFail(getErr());
+}
+
+sub label($)
+{
+  # check arguments
+  my ($path, $label) = decArr(shift);
+  ($path and $label) or return synFail("expecting a path/label");
+
+  # map the path and label the head revision
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+  my ($ret, $output, $errors) =
+      ssStdExec("label", "\$/$rel", "-I-", "-L$label");
+  $ret or return cmdFail("label: " . sanitize($errors));
+  
+  return sendStr($Proto::READY);
+}
+
+
+main();

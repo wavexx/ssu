@@ -1,0 +1,157 @@
+#!/bin/sh
+# basic testsuite for ss/ssserv
+set -e
+
+# check for parameters
+work="$1"
+if [ -z "$work" ]
+then
+    echo "$0 <dir>"
+    exit 1
+fi
+
+# prepare the directory
+rm -rf "$work"
+mkdir -p "$work"
+cd "$work"
+
+# checkin a new file
+echo "- add"
+echo test > test1.txt
+ss ci test1.txt
+test \! -w test1.txt
+
+# checkout the file
+echo "- checkout"
+ss co test1.txt
+test -w test1.txt
+
+# checkin
+echo "- checkin"
+echo >> test1.txt
+ss ci -c 'comment' test1.txt
+test \! -w test1.txt
+
+# get
+echo "- get"
+rm -f test1.txt
+ss get test1.txt > /dev/null
+test \! -w test1.txt
+
+# recursive get
+echo "- recursive get"
+rm -f test1.txt
+ss get . > /dev/null
+test \! -w test1.txt
+
+# history
+echo "- history"
+ss history test1.txt > /dev/null
+ss history -m1 test1.txt | grep -q "^Comment: comment"
+
+# diff
+echo "- diff"
+ss diff test1.txt
+ss co test1.txt
+echo "new" >> test1.txt
+ss diff -du test1.txt | grep -q "^+new";
+
+# revert the file
+echo "- revert"
+ss revert test1.txt
+test \! -w test1.txt
+
+# status
+echo "- status"
+ss status test1.txt > /dev/null
+
+# dir
+echo "- dir"
+ss dir . | grep -q "^test1.txt"
+ss dir -a . > /dev/null
+
+# label
+echo "- label"
+ss label -lalabel test1.txt
+ss status test1.txt | grep -q "Last Label: *alabel"
+
+# cat
+echo "- cat"
+ss cat test1.txt > /dev/null
+ss cat -h test1.txt > /dev/null
+
+# delete
+echo "- delete"
+ss delete test1.txt
+test \! -f test1.txt
+
+# multiple add
+echo "- multiple add"
+touch test2.txt test3.txt
+ss ci -c 'multiple add' test2.txt test3.txt
+
+# recursive add
+echo "- recursive add"
+mkdir temp
+touch temp/test4.txt
+expr "`ss ci .`" = "checking-in ./temp/test4.txt" > /dev/null
+
+# multiple checkout
+echo "- multiple checkout"
+ss co test2.txt test3.txt
+
+# recursive checkout
+echo "- recursive checkout"
+expr "`ss co .`" = "checking-out ./temp/test4.txt" > /dev/null
+
+# multiple history
+echo "- multiple history"
+ss history . test2.txt test3.txt > /dev/null
+
+# multiple diff
+echo "- multiple diff"
+echo "diff" >> temp/test4.txt
+ss diff -du test2.txt test3.txt temp/test4.txt | grep -q "+diff"
+
+# recursive diff
+echo "- recursive diff"
+ss diff -du . | grep -q "+diff"
+
+# multiple revert
+echo "- multiple revert"
+ss revert test2.txt test3.txt
+
+# recursive revert
+echo "- recursive revert"
+expr "`ss revert .`" = "reverting ./temp/test4.txt" > /dev/null
+
+# multiple status
+echo "- multiple status"
+ss status test2.txt test3.txt > /dev/null
+
+# multiple dir
+echo "- multiple dir"
+ss dir test2.txt test3.txt > /dev/null
+
+# multiple label
+echo "- multiple label"
+ss label -lanotherlabel test2.txt test3.txt
+ss status test2.txt | grep -q "Last Label: *anotherlabel"
+
+# multiple cat
+echo "- multiple cat"
+ss cat test2.txt test3.txt > /dev/null
+ss cat -h test2.txt test3.txt > /dev/null
+
+# multiple delete
+echo "- multiple delete"
+ss delete test2.txt test3.txt
+
+# recursive delete
+echo "- recursive delete"
+expr "`ss delete .`" = "deleting ./temp/test4.txt" > /dev/null
+test \! -d temp
+
+# finished
+echo "completed"
+exit 0

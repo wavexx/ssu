@@ -1,0 +1,22 @@
+SSU 0.4:
+
+	* Manual get of a single new file would fail with an error.
+
+	* Recursive diff would stop on the first writable file with no error.
+
+	* Minor cleanups.
+
+
+SSU 0.3: Fri Feb 18 CET 2005
+
+	* Implemented "label" and "cat".
+
+	* Fixed the .ssrc search mechanism (extended to 5 levels).
+
+	* Addition of files in new sub-projects would fail with an error.
+
+	* Removed extra redundant checks in the protocol for latency
+          improvements. **WARNING**: this is a protocol-incompatible
+          release. Both the client and the server needs to be upgraded.
+
+	* Minor cleanups.
