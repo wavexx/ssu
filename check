@@ -76,6 +76,10 @@ ss diff -du test1.txt | grep -q "^+new";
 
 # revert the file
 echo "- revert"
+ss revert -r test1.txt
+test -w test1.txt
+
+echo "- revert 2"
 ss revert test1.txt
 test \! -w test1.txt
 

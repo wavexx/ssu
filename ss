@@ -36,7 +36,7 @@ my %CMAP =
   "get"			=> ["",		\&get],
   "checkout"		=> ["",		\&checkOut],
   "checkin"		=> ["c:",	\&checkIn],
-  "revert"		=> ["",		\&revert],
+  "revert"		=> ["r",	\&revert],
   "dir"			=> ["a",	\&dirListing],
   "history"		=> ["m:",	\&history],
   "status"		=> ["",		\&status],
@@ -604,38 +604,41 @@ sub add(@)
     @files);
 }
 
-sub revertFile($)
+sub revertFile($$)
 {
-  my ($file) = @_;
+  my ($flags, $file) = @_;
+  my $reopen = defined($flags->{"r"});
 
   # file should be writable
   (-w $file) or fail("checkout \"$file\" first");
   my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
 
   # request the old file
-  sendStr($Proto::REVERT, encArr($remote));
+  sendStr(($reopen? $Proto::GET: $Proto::REVERT), encArr($remote));
   ($remote, my $size) = expectCV($Proto::XFER, 2);
   $remote or protoFail();
-  forceUnlink($file) if(-r $file);
 
-  # write as r/o
-  my $old = umask(0222);
+  # get the file
   recvFile($size, $file) or protoFail();
-  umask($old);
+  chmod(0444, $file) unless($reopen);
 }
 
 sub revert(@)
 {
   my ($flags, @files) = @_;
+  my $reopen = defined($flags->{"r"});
 
   filedirExec(
-    \&revertFile,
+    sub
+    {
+      revertFile($flags, $_);
+    },
     sub
     {
       if(-f $_ && -w $_)
       {
 	msg("reverting $_");
-	revertFile($_);
+	revertFile($flags, $_);
       }
     },
     @files);
