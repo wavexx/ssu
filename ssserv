@@ -3,7 +3,6 @@
 # Copyright(c) 2005 of wave++ (Yuri D'Elia)
 # Distributed under GNU LGPL without ANY warranty.
 use strict;
-use warnings;
 use File::Basename qw{basename dirname};
 use File::Temp qw{tempfile tempdir};
 use File::Path qw{mkpath rmtree};
@@ -20,7 +19,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.3";
+my $VERSION	= "0.4";
 my $INI_PATH	= "ssserv.ini";
 my %PARAMS;
 my %USER;
@@ -148,9 +147,10 @@ sub childMain($$)
 {
   my ($fd, $data) = @_;
   my ($port, $addr) = sockaddr_in($data);
+  my $oldFd = select();
   setupFd($fd);
-  select($fd);
   child($port, $addr);
+  select($oldFd);
   close($fd);
 }
 
@@ -346,6 +346,20 @@ sub ssStdTest($)
   return $ret;
 }
 
+sub ssStdDir($)
+{
+  # test for the presence of a directory/project
+  my $rel = shift;
+
+  # properties seems the fastest way
+  my $ret;
+  {
+    lock($curprj);
+    ($ret) = ssStdExec("cp", "\$/$rel", "-I-");
+  }
+  return $ret;
+}
+
 sub ssClean()
 {
   # clean the working environment, but not the dir!
@@ -417,8 +431,7 @@ sub ssMkPath($)
   my $base = dirname($dir);
 
   # check if the directory already exists
-  my ($ret) = ssStdExec("cp", "\$/$dir", "-I-");
-  return 1 if($ret);
+  return 1 if(ssStdDir($dir));
 
   # not quite, check parents
   if($base ne File::Spec->curdir()) {
@@ -426,7 +439,7 @@ sub ssMkPath($)
   }
 
   # now try to create it
-  ($ret) = ssStdExec("create", "\$/$dir", "-I-");
+  my ($ret) = ssStdExec("create", "\$/$dir", "-I-");
   return ($ret);
 }
 
@@ -681,7 +694,7 @@ sub test($)
   return sendStr($Proto::READY, $Proto::FREE) unless($ret);
 
   # file/dir
-  $ret = ssStdExec("cp", "\$/$rel", "-I-");
+  $ret = ssStdDir($rel);
   return sendStr($Proto::READY, ($ret? $Proto::FILE: $Proto::DIR));
 }
 

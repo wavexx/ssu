@@ -22,7 +22,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.3";
+my $VERSION	= "0.4";
 my $RC_PATH	= ".ssrc";
 my $D_PATH	= "$ENV{HOME}/.ss.d";
 my $LEVELS	= 5;
