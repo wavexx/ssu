@@ -94,6 +94,14 @@ echo "- revert 2"
 ss revert test1.txt
 test \! -w test1.txt
 
+echo "- revert 3"
+ss co test1.txt
+echo blabla > test1.txt
+ss revert -a test1.txt
+test -w test1.txt
+ss revert test1.txt
+test \! -w test1.txt
+
 # status
 echo "- status"
 ss status test1.txt > /dev/null

@@ -452,10 +452,10 @@ checkin [-c] files:
 	Checkins the specified files, making them read-only again and
 	unlocking the repository. A comment can be added with the -c flag.
 
-revert [-r] files:
+revert [-ra] files:
 	Revert changes made to the specified files, unlocking the repository
 	without changes. -r reopens the file after restoring the content,
-	without actually releasing the lock.
+	without actually releasing the lock. -a only reverts unchanged files.
 
 dir [-a] files:
 	Remote directory listing. With -a, does not translate the output in

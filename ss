@@ -36,7 +36,7 @@ my %CMAP =
   "get"			=> ["",		\&get],
   "checkout"		=> ["",		\&checkOut],
   "checkin"		=> ["c:",	\&checkIn],
-  "revert"		=> ["r",	\&revert],
+  "revert"		=> ["ra",	\&revert],
   "dir"			=> ["a",	\&dirListing],
   "history"		=> ["m:",	\&history],
   "status"		=> ["",		\&status],
@@ -469,7 +469,7 @@ sub checkOutFile($)
   # request the file
   sendStr($Proto::CHECKOUT, encArr($remote, cksumFile($file)));
   my ($c, $str) = expectC($Proto::READY, $Proto::XFER);
-  defined($str) or protoFail();
+  defined($c) or protoFail();
 
   if($c == $Proto::READY)
   {
@@ -632,14 +632,10 @@ sub add(\%@)
   return 1;
 }
 
-sub revertFile($$)
+sub revertReal($$$)
 {
-  my ($flags, $file) = @_;
+  my ($flags, $file, $remote) = @_;
   my $reopen = defined($flags->{"r"});
-
-  # file should be writable
-  (-w $file) or fail("checkout \"$file\" first");
-  my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
 
   # request the old file
   sendStr(($reopen? $Proto::GET: $Proto::REVERT), encArr($remote));
@@ -651,10 +647,34 @@ sub revertFile($$)
   chmod(0444, $file) unless($reopen);
 }
 
+sub revertOnly($$$)
+{
+  my ($flags, $file, $remote) = @_;
+  
+  # ask remote checksum
+  sendStr($Proto::CKSUM, $remote);
+  my ($cksum) = expectCV($Proto::READY, 1) or protoFail();
+
+  # operate only when the file is identical
+  return 0 if($cksum != cksumFile($file));
+  revertReal($flags, $file, $remote);
+}
+
+sub revertFile($$)
+{
+  my ($flags, $file) = @_;
+
+  # file should be writable
+  (-w $file) or fail("checkout \"$file\" first");
+  my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
+
+  my $f = (defined($flags->{"a"})? \&revertOnly: \&revertReal);
+  &$f($flags, $file, $remote);
+}
+
 sub revert(\%@)
 {
   my ($flags, @files) = @_;
-  my $reopen = defined($flags->{"r"});
 
   filedirExec(
     sub
@@ -663,10 +683,8 @@ sub revert(\%@)
     },
     sub
     {
-      if(-f $_ && -w $_)
-      {
-	msg("reverting $_");
-	revertFile($flags, $_);
+      if(-f $_ && -w $_) {
+	revertFile($flags, $_) and msg("reverting $_");
       }
     },
     @files);

@@ -6,6 +6,8 @@ SSU 0.6:
 
 	* checkout speed improvements.
 
+	* Implemented revert -a flag.
+
 
 SSU 0.5: Sat Mar 05 CET 2005
 
