@@ -44,6 +44,7 @@ my %FMAP =
 
 # global locks
 my $output : shared;
+my $curprj : shared;
 
 
 sub fail(@)
@@ -478,10 +479,16 @@ sub newCheckIn($$$)
   recvFile($size, $new) or return cmdFail(getErr());
 
   # before adding we must set the current project (gah!)
-  my ($ret) = ssStdExec("cp", "\$/$dir", "-I-");
-  $ret or return intFail("cannot set current project");
-  ($ret, my $output, my $errors) = ssStdExec("add", $new, "-I-", "-C$comment");
-  $ret or return cmdFail("checkin: " . sanitize($errors));
+  # ensure the current project is retained (lock everything), as other
+  # commands may interfere.
+  {
+    lock($curprj);
+    my ($ret) = ssStdExec("cp", "\$/$dir", "-I-");
+    $ret or return intFail("cannot set current project");
+    ($ret, my $output, my $errors) =
+	ssStdExec("add", $new, "-I-", "-C$comment");
+    $ret or return cmdFail("checkin: " . sanitize($errors));
+  }
 
   return sendStr($Proto::READY);
 }
@@ -678,8 +685,23 @@ sub test($)
   return sendStr($Proto::READY, ($ret? $Proto::FILE: $Proto::DIR));
 }
 
-sub cksum($)
+sub ckSum($)
 {
+  # return the checksum of a file
+  my ($path) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # map the path
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+
+  # fetch the file
+  my ($ret, $output, $errors) = ssStdExec("get", "\$/$rel", "-W", "-I-");
+  $ret or return cmdFail("get: " . sanitize($errors));
+
+  # return the checksum
+  my $cksum = cksumFile(File::Spec->catfile($USER{WORK}, basename($rel)));
+  return (defined($cksum)? sendStr($Proto::READY, encArr($cksum)): cmdFail($!));
 }
 
 
