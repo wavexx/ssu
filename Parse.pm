@@ -47,6 +47,9 @@ sub parse($$)
     }
   }
 
+  # unterminated continuation
+  return undef if($buf);
+
   return 1;
 }
 
