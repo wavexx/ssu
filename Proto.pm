@@ -113,6 +113,7 @@ sub encArr(@)
 {
   # encode an array of strings
   my (@data) = @_;
+  my @res;
 
   foreach(@data)
   {
@@ -125,9 +126,11 @@ sub encArr(@)
       s/"/\\"/g;
       $_ = qq{"$_"};
     }
+
+    push(@res, $_);
   }
   
-  return join(' ', @data);
+  return join(' ', @res);
 }
 
 sub decArr($)
