@@ -229,6 +229,31 @@ PRUNE:
 	removed as well; up to (but not including) HOME.
 
 
+Revision syntax
+---------------
+
+Some commands permit to work on older versions of files, by using either a
+revision number or a named label. The revision/label is simply appended to the
+local file name, using the appropriate symbol, forming the revision syntax:
+
+``file#revision``:
+	Use the numerical "revision".
+
+``file@label``:
+	Use the named "label".
+
+For example::
+
+  ss cat file@milestone
+
+prints on the standard-output the contents of file labeled at "milestone",
+while::
+
+  ss label -ltest file#1
+
+labels file at revision 1 as "test".
+
+
 Playground
 ==========
 
@@ -407,8 +432,9 @@ get files:
 
 cat [-h] files:
 	Print in the standard-output the latest repository version of the
-	specified files. -h can be used to add an header if multiple files
-	are specified.
+	specified files (cat only accepts files and isn't recursive).
+	-h can be used to add an header if multiple files are specified.
+	Older file versions can be retrieved using the `revision syntax`_.
 
 checkout files:
 	Get an updated read/write version of the specified files,
@@ -422,9 +448,10 @@ checkin [-c] files:
 	Checkins the specified files, making them read-only again and
 	unlocking the repository. A comment can be added with the -c flag.
 
-revert files:
+revert [-r] files:
 	Revert changes made to the specified files, unlocking the repository
-	without changes.
+	without changes. -r reopens the file after restoring the content,
+	without actually releasing the lock.
 
 dir [-a] files:
 	Remote directory listing. With -a, does not translate the output in
@@ -449,8 +476,10 @@ delete [-f] files:
 	(discarding previous history).
 
 label -l <label> files:
-	Tag/label the *head version* of the specified files using the
-	specified label.
+	Tag/label the specified files (using revision syntax or the head
+	version otherwise) using the specified label. You can rename a label by
+	specifying a labeled revision syntax. Labeling an already-labeled
+	revision through a numerical revision is not allowed.
 
 version:
 	Show SSU version information.
@@ -487,6 +516,9 @@ history:
 
 status:
 	properties
+
+cat:
+	print
 
 label:
 	tag

@@ -1,3 +1,17 @@
+SSU 0.5:
+
+	* Finally fixed several command-line escaping issues on windows.
+
+	* checkin/add now spawn an editor when no comments are specified on the
+          command line.
+
+	* -r (reopen) flag implemented for revert.
+
+	* cat and label can now refer to old file versions.
+
+	* Minor cleanups.
+
+
 SSU 0.4: Sat Feb 26 CET 2005
 
 	* Manual get of a single new file would fail with an error.
@@ -7,8 +21,8 @@ SSU 0.4: Sat Feb 26 CET 2005
 	* "checkin" no longer adds new files to the repository: the
           functionality has been moved to the "add" command.
 
-	* Add of a new file was not an atomic operation (the resulting file
-          could end-up in a different project under heavy server usage).
+	* Addition of a new file was not an atomic operation (the resulting
+          file could end-up in a different project under heavy server usage).
 
 	* delete can be forced in some circumstances.
 
