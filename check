@@ -220,7 +220,7 @@ fcheck empty
 
 echo "- text file consistency"
 echo line1 > text
-echo line2 > text
+echo line2 >> text
 fcheck text
 
 # finished
