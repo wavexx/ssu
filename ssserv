@@ -3,6 +3,7 @@
 # Copyright(c) 2005 of wave++ (Yuri D'Elia)
 # Distributed under GNU LGPL without ANY warranty.
 use strict;
+use warnings;
 use Parse;
 use Maps;
 use Proto;
@@ -10,8 +11,10 @@ use File::Basename qw{basename dirname};
 use File::Temp qw{tempfile tempdir};
 use File::Path qw{mkpath rmtree};
 use Getopt::Std qw{getopts};
-use Socket;
+use IO::Socket;
 require File::Spec;
+use threads;
+use threads::shared;
 
 # Some defaults
 my $VERSION	= "0.3";
@@ -34,11 +37,26 @@ my %FMAP =
 );
 
 
+# global locks
+my $output : shared;
+
+
 sub fail(@)
 {
   $_ = join(" ", @_);
   print STDERR (basename($0) . ": $_\n");
-  exit 1;
+  exit(1);
+}
+
+sub msg(@)
+{
+  $_ = join(" ", @_);
+  my @now = localtime(time);
+
+  lock($output);
+  printf(STDOUT "%04d-%02d-%02d %02d:%02d:%02d %s@%s: %s\n",
+	 $now[5] + 1900, $now[4], $now[3], $now[2], $now[1], $now[0],
+	 (defined $USER{USER}? $USER{USER}: "n/a"), $USER{IP}, $_);
 }
 
 sub getRelMap($$)
@@ -99,40 +117,34 @@ sub init($)
   );
 }
 
-sub msg(@)
-{
-  $_ = join(" ", @_);
-  my @now = localtime(time);
-
-  printf(STDOUT "%04d-%02d-%02d %02d:%02d:%02d %s@%s: %s\n",
-	 $now[5] + 1900, $now[4], $now[3], $now[2], $now[1], $now[0],
-	 (defined $USER{USER}? $USER{USER}: "n/a"), $USER{IP}, $_);
-}
-
 sub server()
 {
   # listen
-  my $proto = getprotobyname('tcp');
-  socket(my $fd, PF_INET, SOCK_STREAM, $proto) or fail($!);
-  bind($fd, sockaddr_in($PARAMS{PORT}, INADDR_ANY)) or fail($!);
-  listen($fd, SOMAXCONN) or fail($!);
+  my $sock = new IO::Socket::INET(
+    Type => SOCK_STREAM, Proto => 'tcp', Listen => SOMAXCONN,
+    LocalPort => $PARAMS{PORT}, Reuse => 1) or fail($!);
 
   for(;;)
   {
     # accept a connection
-    my $data = accept(my $conn, $fd);
-    next if(!$data);
+    my ($conn, $data) = $sock->accept();
+    msg($!) and next if(!$conn);
 
     # spawn a child
-    my $pid = fork();
-    if(!$pid)
-    {
-      my ($port, $addr) = sockaddr_in($data);
-      setupFd($conn);
-      select($conn);
-      return child($port, $addr);
-    }
+    my $thread = threads->create("childMain", $conn, $data);
+    msg($!) and next if(!$thread);
+    $thread->detach();
   }
+}
+
+sub childMain($$)
+{
+  my ($fd, $data) = @_;
+  my ($port, $addr) = sockaddr_in($data);
+  setupFd($fd);
+  select($fd);
+  child($port, $addr);
+  close($fd);
 }
 
 sub child($$)
