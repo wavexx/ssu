@@ -116,12 +116,14 @@ sub encArr(@)
 
   foreach(@data)
   {
+    next unless(defined);
+
     s/\\/\\\\/;
     s/\n/\\n/;
-    if(/[\s"]/)
+    if(/(^$|[\s"])/)
     {
       s/"/\\"/g;
-      s/(^|$)/"/g;
+      $_ = qq{"$_"};
     }
   }
   

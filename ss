@@ -314,7 +314,7 @@ sub getFile($$)
   my ($remote, $file) = @_;
 
   # request the file
-  sendGet($remote, cksumFile($file));
+  sendStr($Proto::GET, encArr($remote, cksumFile($file)));
   my ($c, $str) = recvStr();
   (defined $c) or protoFail();
   forceUnlink($file) if(-r $file && $c != $Proto::READY);
@@ -636,22 +636,13 @@ sub revert(@)
     @files);
 }
 
-sub sendGet($$)
-{
-  my ($remote, $cksum) = @_;
-  sendStr($Proto::GET, 
-	  (defined($cksum)?
-	   encArr($remote, $cksum):
-	   encArr($remote)));
-}
-
 sub diffFile($@)
 {
   my ($file, $flags) = @_;
 
   # request the head file
   my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
-  sendGet($remote, cksumFile($file));
+  sendStr($Proto::GET, encArr($remote, cksumFile($file)));
   my ($c, $str) = recvStr();
   defined($c) or protoFail();
   return 1 if($c != $Proto::XFER);
