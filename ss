@@ -737,8 +737,35 @@ sub delete(\%@)
 sub fileVersion($)
 {
   my $file = shift;
-  return ($file =~ /^(.*)(\@[\d\w]+|#\d+)$/?
-	  ($1, $2): ($file, undef));
+  my ($path, $ver) = ($file =~ /^([^@#]*)([@#].*)?$/);
+
+  # verify the version a bit before proceeding foolishly
+  if(defined($ver))
+  {
+    unless($ver =~
+	     m[^
+               (?:
+                 # numerical/head versions
+                 \#(?:head|\d+)
+               |
+                 # labels/dates
+                 \@(?:
+                     # date/time
+                     \d{4}/\d{2}/\d{2}(?:(?::\d{2}){3})?
+                   |
+                     # labels
+                     [a-zA-Z]\w*
+                   )
+               )
+             $]x) {
+      fail("unrecognized version $ver");
+    }
+
+    # #head is actually the same as nothing
+    $ver = undef if($ver eq "#head");
+  }
+
+  return ($path, $ver);
 }
 
 sub label(\%@)
