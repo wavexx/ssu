@@ -118,8 +118,8 @@ sub encArr(@)
   {
     next unless(defined);
 
-    s/\\/\\\\/;
-    s/\n/\\n/;
+    s/\\/\\\\/g;
+    s/\n/\\n/g;
     if(/(^$|[\s"])/)
     {
       s/"/\\"/g;
