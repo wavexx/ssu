@@ -474,7 +474,8 @@ diff [-d] files:
 	executable (``ss diff -du`` gets you unified diffs).
 
 diff2 [-d] file1 file2:
-	Like diff, but compares two repository files directly instead.
+	Like diff, but compares two repository files directly instead
+	(eg: ss diff2 file@date1 file@date2).
 
 delete [-f] files:
 	Deletes the specified files in the repository and locally. -f forces

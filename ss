@@ -22,7 +22,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.5";
+my $VERSION	= "0.6";
 my $RC_PATH	= ".ssrc";
 my $D_PATH	= "$ENV{HOME}/.ss.d";
 my $EDITOR	= $ENV{VISUAL} || $ENV{EDITOR} || "vi";

@@ -15,6 +15,12 @@ not()
     ("$@") && false || true
 }
 
+now()
+{
+    date "+%Y/%m/%d:%T"
+}
+
+
 # prepare the directory
 rm -rf "$work"
 mkdir -p "$work"
@@ -28,6 +34,11 @@ test \! -w test1.txt
 
 echo "- add 2"
 not ss add -c '' test1.txt 2> /dev/null
+
+echo "- time check"
+now > timecheck
+ss add -c '' timecheck
+oldtime="`cat timecheck`"
 
 # checkout the file
 echo "- checkout"
@@ -182,7 +193,7 @@ ss co test2.txt test3.txt
 
 # recursive checkout
 echo "- recursive checkout"
-expr "`ss co .`" = "checking-out ./temp/test4.txt" > /dev/null
+expr "`ss co temp`" = "checking-out temp/test4.txt" > /dev/null
 
 # multiple checkin
 echo "- multiple checkin"
@@ -259,7 +270,7 @@ ss delete test2.txt test3.txt
 
 # recursive delete
 echo "- recursive delete"
-expr "`ss delete .`" = "deleting ./temp/test4.txt" > /dev/null
+expr "`ss delete temp`" = "deleting temp/test4.txt" > /dev/null
 test \! -d temp
 
 # check file consistency across calls
@@ -310,6 +321,17 @@ echo "- text file consistency"
 echo line1 > text
 echo line2 >> text
 fcheck text
+
+# check time only at the end, as sourcesafe resolution seems to be limited
+# to minutes....
+echo "- time check 2"
+ss co timecheck
+now > timecheck
+ss ci -c '' timecheck
+curtime="`cat timecheck`"
+expr "`ss cat timecheck@$oldtime`" = "`ss cat timecheck#1`" > /dev/null
+expr "`ss cat timecheck@$curtime`" = "`ss cat timecheck#2`" > /dev/null
+ss delete timecheck
 
 # finished
 echo "completed"
