@@ -15,7 +15,8 @@ Until now, Unix developers which required access to a SourceSafe repository had
 to use a Windows machine or, in the lucky case that the architecture was
 standard enough, pay another time. SSU provides access to local *and* remote
 SourceSafe repositories through TCP, to any platform, and for **free**,
-alleviating the pain.
+alleviating the pain. SSU also improves the SourceSafe interface and tries to
+work around several design bugs.
 
 Requirements
 ------------
@@ -109,7 +110,7 @@ databases (see the MAP_ configuration reference).
 In the above example we assume that ss will have control of all the
 /home/username/projects tree, and the directory /home/username/projects/dirname
 will actually contain the db/projectname project (where you recall DB was
-configured server-side as ``C:\\DATA\\SSAFE_DB``, yelding ``C:\DATA\SSAFE_DB
+configured server-side as ``C:\\DATA\\SSAFE_DB``, yielding ``C:\DATA\SSAFE_DB
 $/projectname`` in SourceSafe syntax).
 
 Execute ``ss get`` to bootstrap your tree.
@@ -197,6 +198,15 @@ PRUNE:
 	directory twice will destroy the history in SourceSafe. Should be
 	enabled only when "project pollution" is an issue for Visual SourceSafe
 	(the windows client). The default (disabled) is recommended.
+
+AUTOREC:
+	Automatic file recovery upon addition. Defaults to 1 (enabled). When a
+	new file is added, ssserv tries to recover any lost entry and submit
+	the change as a "checkin" instead of an "add". This will prevent the
+	file to be deleted "twice", preserving the whole history. There are
+	still situations where automatic recovery is not possible (like
+	addition over an old directory with the same name). In that case delete
+	should be forced to discard the history of the old directory.
 
 
 .ssrc reference
@@ -356,9 +366,9 @@ Revision syntax
 ---------------
 
 Some commands permit to work on older versions of files, by using either a
-revision number, a named label or a date. The revision/label/date is simply
-appended to the local file name, using the appropriate symbol, forming the
-revision syntax:
+revision number, a label or a date. The revision/label/date is simply appended
+to the local file name, using the appropriate symbol, forming the revision
+syntax:
 
 ``file#revision``:
 	Use the numerical "revision".
@@ -483,6 +493,9 @@ delete [-f] files:
 	forces the delete when the same file was already deleted in SourceSafe
 	(*discarding previous history*).
 
+recover files:
+	Recovers and gets deleted files or directories.
+
 label -l <label> files:
 	Tag/label the specified *repository* files (using revision syntax or
 	the head version otherwise) using the specified label. You can rename a
@@ -560,6 +573,49 @@ Download
 SSU is located at http://www.yuv.info/~wavexx/hacks/ssu/ and distributed under
 the terms of the `GNU LGPL`_ license without *any* warranty. SSU is
 copyright(c) 2005 of Yuri D'Elia <wavexx@users.sf.net>.
+
+
+SourceSafe tips
+===============
+
+If you're used to CVS, SubVersion or other serious revision control systems and
+started to work with SSU recently, here's some useful tips to circumvent
+SourceSafe limitations (and more):
+
+* When doing the same operations on several files (like checkout), recursive
+  modes are generally faster on slow links: for example it's faster to do
+  ``ss checkout .`` than ``ss checkout *``.
+
+* A file revision cannot be labelled twice in SourceSafe; SSU inherits the same
+  limitation and prevents you from removing the old label. However SourceSafe
+  permits to label directories, directories have a version number assigned at
+  each file change and files in a directory inherits the label. Thus always
+  label directories when possible.
+
+* Deleting the same file/project twice in SourceSafe irreversibly destroys
+  history. For this reason "ssserv" intentionally avoids destructive
+  operations: "projects" are never really deleted and "add" tries to recover
+  files instead of creating new ones. As a result (by default) SSU users
+  *cannot* perform destructive operations. However as empty repository
+  directories are not shown nor deleted, adding a file over an empty directory
+  with the same name will trigger a "file already exists" error to user's
+  surprise.
+
+* To revert a file to an old version first checkout the file, retrieve the old
+  version into the new one, and then checkin again::
+
+    ss co file
+    ss cat file#oldversion > file
+    ss ci -c 'reverting new changes' file
+
+* To move a file across directories simply copy/add/remove it. There's really
+  no better way. SourceSafe somewhat supports renaming a file and/or moving a
+  directory into another, but there's no track of the change and the operation
+  could result in another history loss.
+
+* A file was just deleted from the repository, you wanted to know why but now
+  "history" tells nothing more than what you already know. Check the history of
+  the parent directory for some more clue.
 
 
 Support/Mailing list

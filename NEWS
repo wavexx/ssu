@@ -1,4 +1,4 @@
-SSU 0.6:
+SSU 0.6: Sun Mar 20 CET 2005
 
 	* Revision syntax now supports date/times.
 
@@ -11,6 +11,8 @@ SSU 0.6:
 	* Implemented recover.
 
 	* Improved ssserv "add" to work around SourceSafe limitations.
+
+	* Minor cleanups.
 
 
 SSU 0.5: Sat Mar 05 CET 2005
