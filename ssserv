@@ -414,25 +414,13 @@ sub get($)
 
   if(defined($arg))
   {
-    if($arg =~ /^(\d*)#(\d+)$/)
-    {
-      $cksum = $1;
-      $version = $2;
-    }
-    elsif($arg =~ /^(\d*)\@([\d\w]+)$/)
-    {
-      $cksum = $1;
-      $version = "L$2";
-    }
-    elsif($arg =~ /^\d+$/) {
-      $cksum = $arg;
-    } else {
-      return synFail("bad argument");
-    }
+    ($cksum, $version) = ($arg =~ /^(\d+)?([@#].*)?$/);
+    return synFail("bad argument") unless(defined($cksum) || defined($version));
 
-    # fix unspecified cksum
-    if(defined($cksum) && ($cksum eq "")) {
-      $cksum = undef;
+    if(defined($version))
+    {
+      $version = fixVersion($version);
+      return synFail("bad version") unless(defined($version));
     }
   }
 
@@ -510,6 +498,36 @@ sub fixComment($)
   return "-" if(!defined($comment));
   return $1 if($comment =~ /^[\@\?-](.*)/);
   return $comment;
+}
+
+sub fixVersion($)
+{
+  my $ver = shift;
+
+  if($ver =~ /^#(\d+)$/)
+  {
+    # handle numerical revs
+    return ($1? $1: undef);
+  }
+  elsif($ver =~ m|^\@(\d{4})/(\d{2})/(\d{2})(?::(\d{2}):(\d{2}):(\d{2}))?$|)
+  {
+    # handle date/time
+    my ($y, $m, $d, $hh, $mm, $ss) = ($1, $2, $3, $4, $5, $6);
+    unless(defined($hh)) {
+      $hh = $mm = $ss = 0;
+    }
+    
+    return sprintf("d%02d/%02d/%04d;%02d:%02d:%02d",
+		   $d, $m, $y, $hh, $mm, $ss);
+  }
+  elsif($ver =~ /^\@([a-zA-Z].*)$/)
+  {
+    # labels
+    return "L$1"
+  }
+
+  # no match
+  return undef;
 }
 
 sub add($)
@@ -721,6 +739,7 @@ sub label($)
   # check arguments
   my ($path, $label, $arg) = decArr(shift);
   ($path and $label) or return synFail("expecting a path/label");
+  ($label =~ /^[a-zA-Z]/) or return synFail("bad label");
 
   # decompose arg
   my $version;
@@ -728,17 +747,8 @@ sub label($)
 
   if(defined($arg))
   {
-    if($arg =~ /^\@([\d\w]+)$/)
-    {
-      $force = "Y";
-      $version = "L$1";
-    }
-    elsif($arg =~ /^#(\d+)$/) {
-      $version = $1;
-    }
-    else {
-      return synFail("bad version");
-    }
+    $version = fixVersion($arg) or return synFail("bad version");
+    $force = "Y" if($version =~ /^L/);
   }
 
   # map the path and label the head revision

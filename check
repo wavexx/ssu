@@ -141,6 +141,11 @@ ss cat labeltest@labeltest | grep -q "^rev1$"
 ss label -lnewlabel labeltest@labeltest
 ss cat labeltest@newlabel | grep -q "^rev1$"
 not ss label -llabeltext labeltest#1 2> /dev/null
+
+echo "- label 3"
+not ss label -l '1nvalid' labeltest@newlabel 2> /dev/null
+ss label -l 'alph4num_3ric-la( la).' labeltest@newlabel
+ss label -l newlabel 'labeltest@alph4num_3ric-la( la).'
 ss rm labeltest
 
 # delete
@@ -208,8 +213,18 @@ ss diff -du . | grep -q "+diff"
 
 echo "- recursive diff 2"
 touch test5.txt
-ss diff -du . > /dev/null
+ss diff -du . | grep -q "+diff"
 rm test5.txt
+
+echo "- diff return status"
+not ss diff -du temp/test4.txt > /dev/null
+not ss diff -du . > /dev/null
+ss revert -r temp/test4.txt
+ss diff -du temp/test4.txt
+ss diff -du .
+touch remove
+not ss diff -du .
+rm remove
 
 # multiple revert
 echo "- multiple revert"

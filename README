@@ -356,8 +356,9 @@ Revision syntax
 ---------------
 
 Some commands permit to work on older versions of files, by using either a
-revision number or a named label. The revision/label is simply appended to the
-local file name, using the appropriate symbol, forming the revision syntax:
+revision number, a named label or a date. The revision/label/date is simply
+appended to the local file name, using the appropriate symbol, forming the
+revision syntax:
 
 ``file#revision``:
 	Use the numerical "revision".
@@ -365,16 +366,22 @@ local file name, using the appropriate symbol, forming the revision syntax:
 ``file@label``:
 	Use the named "label".
 
+``file@yyyy/mm/dd``, ``file@yyyy/mm/dd:hh:mm:ss``:
+	Use the specified date. If no time is specified, 00:00:00 is assumed.
+
 For example::
 
   ss cat file@milestone
 
-prints on the standard-output the contents of file labeled at "milestone",
+prints on the standard-output the contents of file labelled at "milestone",
 while::
 
   ss label -ltest file#1
 
 labels file at revision 1 as "test".
+
+A file without revision syntax, or with the special "#head" spec, always refers
+to the latest available revision.
 
 
 Test suite
@@ -476,10 +483,11 @@ delete [-f] files:
 	(*discarding previous history*).
 
 label -l <label> files:
-	Tag/label the specified files (using revision syntax or the head
-	version otherwise) using the specified label. You can rename a label by
-	specifying a labeled revision syntax. Labeling an already-labeled
-	revision through a numerical revision is not allowed.
+	Tag/label the specified *repository* files (using revision syntax or
+	the head version otherwise) using the specified label. You can rename a
+	label by specifying a labelled revision syntax. Labelling an
+	already-labelled revision through a numerical revision or date is not
+	allowed.
 
 version:
 	Show SSU version information.

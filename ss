@@ -79,7 +79,7 @@ sub fail(@)
 {
   $_ = join(" ", @_);
   print STDERR (basename($0) . ": $_\n");
-  exit(1);
+  exit(2);
 }
 
 # fail by protocol error
@@ -170,7 +170,7 @@ sub main()
   undef %flags;
   @ARGV = @args;
   getopts($handler->[0], \%flags) or exit(2);
-  return !(&{$handler->[1]}(\%flags, @ARGV));
+  exit(!(&{$handler->[1]}(\%flags, @ARGV)));
 }
 
 sub setup()
@@ -275,6 +275,8 @@ sub dirListing(\%@)
       print STDOUT "$_\n" if($_);
     }
   }
+
+  return 1;
 }
 
 sub status(\%@)
@@ -294,6 +296,8 @@ sub status(\%@)
     # output
     print STDOUT $buf;
   }
+
+  return 1;
 }
 
 sub history(\%@)
@@ -314,6 +318,8 @@ sub history(\%@)
     # output
     print STDOUT $buf;
   }
+
+  return 1;
 }
 
 sub getFile($$)
@@ -448,6 +454,8 @@ sub get(\%@)
       }
     }
   }
+
+  return 1;
 }
 
 sub checkOutFile($)
@@ -502,6 +510,8 @@ sub checkOut(\%@)
       }
     },
     @files);
+
+  return 1;
 }
 
 sub checkInShared($$)
@@ -565,6 +575,8 @@ sub checkIn(\%@)
       }
     },
     @files);
+
+  return 1;
 }
 
 sub addFile($$)
@@ -604,6 +616,8 @@ sub add(\%@)
       }
     },
     @files);
+
+  return 1;
 }
 
 sub revertFile($$)
@@ -644,20 +658,24 @@ sub revert(\%@)
       }
     },
     @files);
+
+  return 1;
 }
 
 sub diffFile($$$)
 {
   my ($flags, $file, $version) = @_;
   $version = $version || "";
-  my $arg = ((cksumFile($file) || "") . $version);
+  my $cksum = cksumFile($file);
+  my $arg = ((defined($cksum)? $cksum: "") . $version);
+  $arg = undef if($arg eq "");
 
   # request the head file
   my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
   sendStr($Proto::GET, encArr($remote, $arg));
   my ($c, $str) = recvStr();
   defined($c) or protoFail();
-  return 1 if($c != $Proto::XFER);
+  return ($c == $Proto::READY) if($c != $Proto::XFER);
   
   # the file exists and was modified
   ($remote, my $size) = decArr($str);
@@ -681,6 +699,7 @@ sub diffFile($$$)
 sub diff(\%@)
 {
   my ($flags, @files) = @_;
+  my $ret = 1;
 
   foreach my $file(@files)
   {
@@ -689,14 +708,16 @@ sub diff(\%@)
     filedirExec(
       sub
       {
-	diffFile($flags, $_, $version);
+	diffFile($flags, $_, $version) or $ret = 0;
       },
       sub
       {
-	diffFile($flags, $_, $version) if(-f $_);
+	diffFile($flags, $_, $version) or $ret = 0 if(-f $_);
       },
       $file);
   }
+
+  return $ret;
 }
 
 sub deleteFile($$)
@@ -732,6 +753,8 @@ sub delete(\%@)
       }
     },
     @files);
+
+  return 1;
 }
 
 sub fileVersion($)
@@ -754,7 +777,7 @@ sub fileVersion($)
                      \d{4}/\d{2}/\d{2}(?:(?::\d{2}){3})?
                    |
                      # labels
-                     [a-zA-Z]\w*
+                     [a-zA-Z].*
                    )
                )
              $]x) {
@@ -781,6 +804,8 @@ sub label(\%@)
     sendStr($Proto::LABEL, encArr($remote, $label, $version));
     my $code = expectC($Proto::READY) or protoFail();
   }
+
+  return 1;
 }
 
 sub getFVBuf($$)
@@ -817,6 +842,8 @@ sub cat(\%@)
     ($file, my $version) = fileVersion($file);
     catFile($file, $version);
   }
+
+  return 1;
 }
 
 sub getFTmp($)

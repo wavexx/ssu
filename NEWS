@@ -1,3 +1,10 @@
+SSU 0.6:
+
+	* Revision syntax now supports date/times.
+
+	* Exit status is now compatible with diff(1).
+
+
 SSU 0.5: Sat Mar 05 CET 2005
 
 	* Fixed several long-standing command-line escaping issues on ssserv
