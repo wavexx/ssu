@@ -1,6 +1,7 @@
-SSU 0.5:
+SSU 0.5: Sat Mar 05 CET 2005
 
-	* Finally fixed several command-line escaping issues on windows.
+	* Fixed several long-standing command-line escaping issues on ssserv
+	  (almost all operations affected, upgrade highly recommended).
 
 	* checkin/add now spawn an editor when no comments are specified on the
           command line.
@@ -9,7 +10,7 @@ SSU 0.5:
 
 	* cat, label and diff can now refer to old file versions.
 
-	* implemented diff2.
+	* Implemented diff2.
 
 	* Minor cleanups.
 

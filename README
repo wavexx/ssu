@@ -41,8 +41,9 @@ Development status
 Beta quality. SSU supports and uniforms a good subset of the SourceSafe
 features and has proven to be stable when used by a team of 6 developers
 accessing a single server. SSU has been developed since some months now and
-employs some regression testing, but lacks a significant amount of user
-testing: it should *not* be considered of production quality.
+employs some regression testing, but lacks a significant amount of user testing
+(please report any success): it should *not* be considered of production
+quality.
 
 The adoption of Perl was mainly due to its presence in server environments (ss
 works with Perl 5.4 which is still largely installed), but may eventually be
@@ -229,31 +230,6 @@ PRUNE:
 	removed as well; up to (but not including) HOME.
 
 
-Revision syntax
----------------
-
-Some commands permit to work on older versions of files, by using either a
-revision number or a named label. The revision/label is simply appended to the
-local file name, using the appropriate symbol, forming the revision syntax:
-
-``file#revision``:
-	Use the numerical "revision".
-
-``file@label``:
-	Use the named "label".
-
-For example::
-
-  ss cat file@milestone
-
-prints on the standard-output the contents of file labeled at "milestone",
-while::
-
-  ss label -ltest file#1
-
-labels file at revision 1 as "test".
-
-
 Playground
 ==========
 
@@ -285,10 +261,6 @@ When done with editing, you can ``checkin`` the file::
 
   $ ss checkin dir/test.txt
 
-Optionally, you can specify a comment with "-c"::
-
-  $ ss checkin -c 'testing the client' dir/test.txt
-
 All-in-all:
 
 * ``get`` updates your read-only files
@@ -319,7 +291,7 @@ limited (due to SourceSafe limitations or development status) in some ways:
   to be able to use the "ss.exe" command for all users.
 
 * Only text files are supported. Line-endings are correctly converted, but
-  binary files will get corrupted (if even recognised as such by SourceSafe).
+  binary files will get corrupted.
 
 * No atomic commits. The ability of specifying multiple files in the command
   line is purely syntactic sugar. Atomicity is guaranteed only on a
@@ -378,6 +350,31 @@ free.
 
 Again, note that this gives you a secure *transport* (for example for working
 off-site), *not* a secure server.
+
+
+Revision syntax
+---------------
+
+Some commands permit to work on older versions of files, by using either a
+revision number or a named label. The revision/label is simply appended to the
+local file name, using the appropriate symbol, forming the revision syntax:
+
+``file#revision``:
+	Use the numerical "revision".
+
+``file@label``:
+	Use the named "label".
+
+For example::
+
+  ss cat file@milestone
+
+prints on the standard-output the contents of file labeled at "milestone",
+while::
+
+  ss label -ltest file#1
+
+labels file at revision 1 as "test".
 
 
 Test suite
@@ -470,13 +467,13 @@ diff [-d] files:
 	executable (``ss diff -du`` gets you unified diffs).
 
 diff2 [-d] file1 file2:
-	Like diff, but compares two repository files instead.
+	Like diff, but compares two repository files directly instead.
 
 delete [-f] files:
 	Deletes the specified files in the repository and locally. -f forces
 	the delete for writable files, discarding any local changes. -f also
 	forces the delete when the same file was already deleted in SourceSafe
-	(discarding previous history).
+	(*discarding previous history*).
 
 label -l <label> files:
 	Tag/label the specified files (using revision syntax or the head
@@ -526,6 +523,20 @@ label:
 These are just mere aliases however: flags/syntax doesn't change.
 
 
+Verbose output
+~~~~~~~~~~~~~~
+
+get/checkin/checkout use one-letter messages to inform you about state changes
+of your tree when operating:
+
+:?:	File skipped (no remote file).
+:O:	File opened locally/no remote changes.
+:U:	File updated.
+:D:	File deleted.
+:M:	File merged.
+:C:	Conflict.
+
+
 Download
 ========
 
@@ -534,12 +545,12 @@ the terms of the `GNU LGPL`_ license without *any* warranty. SSU is
 copyright(c) 2005 of Yuri D'Elia <wavexx@users.sf.net>.
 
 
-Support
-=======
+Support/Mailing list
+====================
 
 Subscribe to `ssu-users` by sending an empty email to <minimalist@yuv.info>
-with the subject containing `subscribe ssu-users`, or contact the
-author. English proof-reading is greatly appreciated.
+with the subject containing `subscribe ssu-users`, or contact the author to get
+support. The list is about discussing bugs and release announcements only.
 
 
 .. _ActivePerl: http://www.activestate.com/Products/ActivePerl/
