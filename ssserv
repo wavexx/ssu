@@ -215,15 +215,16 @@ sub login()
   # send a login request
   sendStr($Proto::LOGIN, "identify");
   my ($user, $pass) = expectCV($Proto::USRPWD, 2);
-  unless(defined $user)
+  unless(defined($user))
   {
-    cmdFail(getErr());
+    synFail(getErr());
     return 0;
   }
 
   # propagate parameters
   $USER{USER} = $user;
   $USER{PASS} = $pass;
+  my $argUser = ssEscape("-Y$user,$pass");
 
   # validate the user. as the process is different from standard
   # ss operations, do it manually. Validation is necessary to avoid
@@ -239,7 +240,7 @@ sub login()
     \@echo off
     cd "$PARAMS{TEMP}"
     set "SSDIR=$USER{SSDIR}"
-    ss whoami -I- "-Y$USER{USER},$USER{PASS}"
+    ss whoami -I- $argUser
   };
   close $tmpFd;
   
@@ -280,15 +281,30 @@ sub sanitize(@)
   return $_;
 }
 
+sub ssEscape($)
+{
+  $_ = shift;
+
+  if(/[\s|&<>^"%]/)
+  {
+    s/\^/^^/g;
+    s/%/^%/g;
+    $_ = qq{"$_"};
+  }
+
+  return $_;
+}
+
 sub ssExec($@)
 {
   my ($dir, @args) = @_;
 
   # prepare the arguments
   foreach(@args) {
-    s/(^|$)/"/g if(/[\s|&<>]/);
+    $_ = ssEscape($_);
   }
   my $argList = join(" ", @args);
+  my $argUser = ssEscape("-Y$USER{USER},$USER{PASS}");
 
   # prepare the environment for ss
   my ($tmpFd, $batch) = tempfile(DIR => $PARAMS{TEMP}, SUFFIX => ".bat");
@@ -306,7 +322,7 @@ sub ssExec($@)
     \@echo off
     cd "$dir"
     set "SSDIR=$USER{SSDIR}"
-    ss $argList "-Y$USER{USER},$USER{PASS}"
+    ss $argList $argUser
   };
   close $tmpFd;
   
@@ -464,7 +480,7 @@ sub add($)
   # check arguments
   my ($path, $comment) = decArr(shift);
   $path or return synFail("expecting a path");
-  $comment = "" if(!$comment);
+  $comment = "-" if(!$comment);
 
   # map the path
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
@@ -501,7 +517,7 @@ sub checkIn($)
   # check arguments
   my ($path, $comment) = decArr(shift);
   $path or return synFail("expecting a path");
-  $comment = "" if(!$comment);
+  $comment = "-" if(!$comment);
 
   # map the path
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
