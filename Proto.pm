@@ -177,7 +177,7 @@ sub sendBuf($$)
 sub sendFile($$)
 {
   my ($name, $path) = @_;
-  my $buf;
+  my $buf = "";
   my $line;
 
   open(FD, "<$path") or return setErr($!);
