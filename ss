@@ -467,16 +467,28 @@ sub checkOutFile($)
   my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
 
   # request the file
-  sendStr($Proto::CHECKOUT, encArr($remote));
-  ($remote, my $size) = expectCV($Proto::XFER, 2);
-  $remote or protoFail();
-  forceUnlink($file) if(-r $file);
+  sendStr($Proto::CHECKOUT, encArr($remote, cksumFile($file)));
+  my ($c, $str) = expectC($Proto::READY, $Proto::XFER);
+  defined($str) or protoFail();
 
-  # write as r/w
-  mkpath(dirname($file));
-  my $old = umask(0022);
-  recvFile($size, $file) or protoFail();
-  umask($old);
+  if($c == $Proto::READY)
+  {
+    # just fix the permissions
+    chmod(0644, $file);
+  }
+  else
+  {
+    # receive the file
+    ($remote, my $size) = decArr($str);
+    $remote or protoFail();
+    forceUnlink($file) if(-r $file);
+
+    # write as r/w
+    mkpath(dirname($file));
+    my $old = umask(0022);
+    recvFile($size, $file) or protoFail();
+    umask($old);
+  }
 }
 
 # launch different commands depending on the argument filetype

@@ -153,9 +153,9 @@ sub expectCV(@)
   return @arr;
 }
 
-sub expectC($)
+sub expectC(@)
 {
-  my $code = shift;
+  my @codes = @_;
 
   # fetch the data
   my ($c, $str) = recvStr();
@@ -163,9 +163,10 @@ sub expectC($)
 
   # check for remote errors
   return setErr("error: $str") if($c == $Proto::ERROR);
-  return setErr("unexpected answer") if($c != $code);
+  return setErr("unexpected answer") if(!defined(grep {$_ == $c} @codes));
 
-  return $str;
+  # allow expectC to be used within different contexts easily
+  return (wantarray? ($c, $str): $str);
 }
 
 sub sendBuf($$)

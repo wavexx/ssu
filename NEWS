@@ -4,6 +4,8 @@ SSU 0.6:
 
 	* Exit status is now compatible with diff(1).
 
+	* checkout speed improvements.
+
 
 SSU 0.5: Sat Mar 05 CET 2005
 

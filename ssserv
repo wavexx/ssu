@@ -433,18 +433,26 @@ sub get($)
   my ($ret, $output, $errors) = ssStdExec(@args);
   $ret or return cmdFail("get: " . sanitize($errors));
 
-  # open the file
-  my $buf = readFile(File::Spec->catfile($USER{WORK}, basename($rel)));
+  sendFileCond(File::Spec->catfile($USER{WORK}, basename($rel)), $cksum);
+}
+
+sub sendFileCond($$)
+{
+  # send a file only when needed
+  my ($file, $cksum) = @_;
+  my $name = basename($file);
+
+  my $buf = readFile($file);
   defined($buf) or return cmdFail($!);
 
   my $send = (!defined($cksum) || (cksumBuf($buf) != $cksum));
-  ($send? sendBuf($path, $buf): sendStr($Proto::READY)) or cmdFail(getErr());
+  ($send? sendBuf($name, $buf): sendStr($Proto::READY)) or cmdFail(getErr());
 }
 
 sub checkOut($)
 {
   # check arguments
-  my ($path) = decArr(shift);
+  my ($path, $cksum) = decArr(shift);
   $path or return synFail("expecting a path");
 
   # map and fetch the file
@@ -453,9 +461,7 @@ sub checkOut($)
   my ($ret, $output, $errors) = ssStdExec("checkout", "\$/$rel", "-I-");
   $ret or return cmdFail("checkout: " . sanitize($errors));
 
-  # send the requested file
-  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
-  sendFile($path, $new) or cmdFail(getErr());
+  sendFileCond(File::Spec->catfile($USER{WORK}, basename($rel)), $cksum);
 }
 
 sub ssMkPath($)

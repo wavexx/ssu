@@ -546,6 +546,14 @@ of your tree when operating:
 :C:	Conflict.
 
 
+Exit status
+~~~~~~~~~~~
+
+:0:	Command completed successfully. Only in diff/diff2: no differences.
+:1:	Only in diff/diff2: some differences.
+:2:	Error.
+
+
 Download
 ========
 
