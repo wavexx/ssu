@@ -724,14 +724,19 @@ sub label($)
 
   # decompose arg
   my $version;
+  my $force = "N";
 
   if(defined($arg))
   {
-    if($arg =~ /^#(\d+)$/) {
-      $version = $1;
-    } elsif($arg =~ /^\@([\d\w]+)$/) {
+    if($arg =~ /^\@([\d\w]+)$/)
+    {
+      $force = "Y";
       $version = "L$1";
-    } else {
+    }
+    elsif($arg =~ /^#(\d+)$/) {
+      $version = $1;
+    }
+    else {
       return synFail("bad version");
     }
   }
@@ -740,7 +745,7 @@ sub label($)
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
 
-  my @args = ("label", "\$/$rel", "-I-Y", "-L$label");
+  my @args = ("label", "\$/$rel", "-I-$force", "-L$label");
   push(@args, "-V$version") if(defined($version));
   my ($ret, $output, $errors) = ssStdExec(@args);
   $ret or return cmdFail("label: " . sanitize($errors));

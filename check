@@ -120,6 +120,7 @@ ss label -llabeltest labeltest#1
 ss cat labeltest@labeltest | grep -q "^rev1$"
 ss label -lnewlabel labeltest@labeltest
 ss cat labeltest@newlabel | grep -q "^rev1$"
+not ss label -llabeltext labeltest#1 2> /dev/null
 ss rm labeltest
 
 # delete
