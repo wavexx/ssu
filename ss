@@ -41,6 +41,7 @@ my %CMAP =
   "history"		=> ["m:",	\&history],
   "status"		=> ["",		\&status],
   "diff"		=> ["d:",	\&diff],
+  "diff2"		=> ["d:",	\&diff2],
   "delete"		=> ["f",	\&delete],
   "label"		=> ["l:",	\&label],
   "cat"			=> ["h",	\&cat],
@@ -243,7 +244,7 @@ sub forceUnlink($)
       fail("cannot unlink \"$file\"");
 }
 
-sub version(@)
+sub version(\%@)
 {
   my $fd = select(STDOUT);
   print "ss version $VERSION\n";
@@ -409,7 +410,7 @@ sub getDir($$)
     $file);
 }
 
-sub get(@)
+sub get(\%@)
 {
   my ($flags, @files) = @_;
 
@@ -486,7 +487,7 @@ sub filedirExec(&&@)
   }
 }
 
-sub checkOut(@)
+sub checkOut(\%@)
 {
   my ($flags, @files) = @_;
 
@@ -546,7 +547,7 @@ sub checkInExt($$)
   }
 }
 
-sub checkIn(@)
+sub checkIn(\%@)
 {
   my ($flags, @files) = @_;
   my $comment = readComment("checkin", $flags->{"c"});
@@ -584,7 +585,7 @@ sub addFile($$)
   expectC($Proto::READY) or protoFail();
 }
 
-sub add(@)
+sub add(\%@)
 {
   my ($flags, @files) = @_;
   my $comment = readComment("add", $flags->{"c"});
@@ -624,7 +625,7 @@ sub revertFile($$)
   chmod(0444, $file) unless($reopen);
 }
 
-sub revert(@)
+sub revert(\%@)
 {
   my ($flags, @files) = @_;
   my $reopen = defined($flags->{"r"});
@@ -677,7 +678,7 @@ sub diffFile($$$)
   return !$ret;
 }
 
-sub diff(@)
+sub diff(\%@)
 {
   my ($flags, @files) = @_;
 
@@ -712,7 +713,7 @@ sub deleteFile($$)
   return prune(dirname($file));
 }
 
-sub delete(@)
+sub delete(\%@)
 {
   my ($flags, @files) = @_;
   my $force = defined($flags->{"f"});
@@ -740,7 +741,7 @@ sub fileVersion($)
 	  ($1, $2): ($file, undef));
 }
 
-sub label(@)
+sub label(\%@)
 {
   my ($flags, @files) = @_;
   my $label = $flags->{"l"} or fail("need a label name");
@@ -755,7 +756,7 @@ sub label(@)
   }
 }
 
-sub catFile($$)
+sub getFVBuf($$)
 {
   my ($file, $version) = @_;
 
@@ -769,10 +770,16 @@ sub catFile($$)
   my $buf = recvBuf($size);
   defined($buf) or protoFail();
 
-  print STDOUT $buf;
+  return $buf;
 }
 
-sub cat(@)
+sub catFile($$)
+{
+  my ($file, $version) = @_;
+  print STDOUT getFVBuf($file, $version);
+}
+
+sub cat(\%@)
 {
   my ($flags, @files) = @_;
   my $header = $flags->{"h"} || 0;
@@ -783,6 +790,43 @@ sub cat(@)
     ($file, my $version) = fileVersion($file);
     catFile($file, $version);
   }
+}
+
+sub getFTmp($)
+{
+  my ($file, $version) = fileVersion(shift);
+  my $buf = getFVBuf($file, $version);
+  $file = tmpnam() or fail($!);
+
+  open(FD, ">$file") or fail($!);
+  print FD $buf;
+  close(FD);
+
+  return $file;
+}
+
+sub diff2(\%@)
+{
+  my ($flags, @files) = @_;
+  my ($fileA, $fileB) = @files;
+  ($fileA && $fileB) or fail("missing file arguments");
+
+  # fetch the two files
+  my $tmpA = getFTmp($fileA);
+  my $tmpB = getFTmp($fileB);
+
+  # diff
+  print STDOUT "==== $fileA - $fileB ====\n";
+  STDOUT->flush();
+  my @args = ("diff");
+  push(@args, "-$flags->{'d'}") if($flags->{"d"});
+  my $ret = system(@args, "--", $tmpA, $tmpB);
+
+  # remove temporals
+  unlink($tmpA);
+  unlink($tmpB);
+
+  return !$ret;
 }
 
 sub genTemplate($)

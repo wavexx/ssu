@@ -9,6 +9,8 @@ SSU 0.5:
 
 	* cat, label and diff can now refer to old file versions.
 
+	* implemented diff2.
+
 	* Minor cleanups.
 
 

@@ -120,6 +120,12 @@ echo "rev2" > difftest
 ss diff difftest | sed -e '1d' > difftest1
 ss diff difftest#1 | sed -e '1d' > difftest2
 cmp -s difftest1 difftest2
+
+echo "- diff2"
+test -z "`ss diff2 difftest#1 difftest | sed -e '1d'`"
+ss ci -c '' difftest
+ss diff2 difftest#1 difftest#2 | sed -e '1d' > difftest1
+cmp -s difftest1 difftest2
 rm difftest1 difftest2
 ss delete -f difftest
 

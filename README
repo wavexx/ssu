@@ -38,11 +38,11 @@ Only SourceSafe 6.0 has been tested.
 Development status
 ------------------
 
-I'd hardly say beta quality. SSU supports and uniforms a good subset of the
-SourceSafe features and has proven to be stable when used by a team of 6
-developers accessing a single server. SSU has been developed since three weeks
-only, thus lacks a significant amount of testing: it should *not* be considered
-of production quality.
+Beta quality. SSU supports and uniforms a good subset of the SourceSafe
+features and has proven to be stable when used by a team of 6 developers
+accessing a single server. SSU has been developed since some months now and
+employs some regression testing, but lacks a significant amount of user
+testing: it should *not* be considered of production quality.
 
 The adoption of Perl was mainly due to its presence in server environments (ss
 works with Perl 5.4 which is still largely installed), but may eventually be
@@ -340,7 +340,7 @@ limited (due to SourceSafe limitations or development status) in some ways:
   the same database are specified. This should be fixed.
 
 * SSU only implements a subset of the entire SourceSafe features, focusing on
-  inter-operation (query capabilities are limited to 'history' and 'status').
+  inter-operation.
 
 
 Future developments
@@ -465,9 +465,12 @@ status files:
 	Shows file status (head revision number, modification dates, etc).
 
 diff [-d] files:
-	Diffs local files against latest repository version (or and older
-	version using revision syntax). -d can be used to pass local options to
-	the diff executable (``ss diff -du`` gets you unified diffs).
+	Diffs repository files (head version or older using revision syntax)
+	against local files. -d can be used to pass local options to the diff
+	executable (``ss diff -du`` gets you unified diffs).
+
+diff2 [-d] file1 file2:
+	Like diff, but compares two repository files instead.
 
 delete [-f] files:
 	Deletes the specified files in the repository and locally. -f forces
@@ -517,11 +520,10 @@ history:
 status:
 	properties
 
-cat:
-	print
-
 label:
 	tag
+
+These are just mere aliases however: flags/syntax doesn't change.
 
 
 Download
