@@ -253,8 +253,8 @@ To modify a file you use the ``checkout`` command::
 ``ss checkout`` will update the specified file/files to the latest revision,
 make them writable and lock the repository. Under SourceSafe only a single user
 at a time can have a file checked-out/locked. The "multiple-checkouts" option
-in SourceSafe is avoided at all costs, and isn't used at all by SSU (See
-`Future developments`_).
+in SourceSafe is avoided at all costs, and isn't used by SSU (See `Future
+developments`_).
 
 When done with editing, you can ``checkin`` the file::
 
@@ -272,9 +272,6 @@ All-in-all:
 
 * ``checkin`` will commit your changes, and return the file to read-only
   state.
-
-* ``checkin`` can be used to add new files in the repository. Just ``checkin``
-  a new writable file under the controlled tree.
 
 * All commands support one or more files.
 
@@ -299,8 +296,9 @@ limited (due to SourceSafe limitations or development status) in some ways:
 * Only text files are supported. Line-endings are correctly converted, but
   binary files will get corrupted (if even recognised as such by SourceSafe).
 
-* No atomic commits. The ability of doing so in the command line is purely
-  syntactic sugar.
+* No atomic commits. The ability of specifying multiple files in the command
+  line is purely syntactic sugar. Atomicity is guaranteed only on a
+  per-operation basis.
 
 * Multiple check-outs of a single file are a serious problem in the "ss.exe"
   interface. Basically, there's not enough consistency to perform unattended
@@ -326,19 +324,20 @@ Future developments
 The big mayor step in the SSU development will be a new (and possibly better)
 cooperation model for SourceSafe. As already explained, two users cannot
 checkout the same file at the same time and the "multiple checkouts" option of
-SourceSafe just isn't an option.
+SourceSafe just isn't the way to go.
 
 My intention is to provide an alternate checkout method to the client
 interface. When the alternate checkout method is selected (manually or
 automatically), the original file is stored in ``~/.ss.d``, and the file is
 chmodded read/write. Further updates through get will check for these files,
 and merge the changes by using them as common ancestors (thus moving the merge
-issue locally, using diff3 or the user's favoured merge tool). Check-ins will
+issue locally, using diff3 or the user's favoured merge tool). Checkins will
 simply verify that the latest file was merged and locking the file in the
 repository for a couple of seconds.
 
 SSU however is not meant to be a fully fledged revision control system for
-Unix, just an *aid* where SourceSafe access is required.
+Unix, just an *aid* where SourceSafe access is required. Consider switching to
+a better revision control system instead.
 
 
 Securing the transport
@@ -407,15 +406,20 @@ get files:
 	removed when updating.
 
 cat [-h] files:
-	Print in the standard-output the contents of the specified files. -h
-	can be used to add an header if multiple files are specified.
+	Print in the standard-output the latest repository version of the
+	specified files. -h can be used to add an header if multiple files
+	are specified.
 
 checkout files:
-	Get an updated read/write version of the specified files, locking the
-	repository.
+	Get an updated read/write version of the specified files,
+	locking the repository.
+
+add [-c] files:
+	Adds the specified files to the repository, and make them read-only.
+	A comment can be added with the -c flag.
 
 checkin [-c] files:
-	Adds or check-ins the specified files, making them read-only again and
+	Checkins the specified files, making them read-only again and
 	unlocking the repository. A comment can be added with the -c flag.
 
 revert files:
@@ -438,8 +442,11 @@ diff [-d] files:
 	pass local options to the diff executable (``ss diff -du`` gets you
 	unified diffs).
 
-delete files:
-	Deletes the specified files in the repository and locally.
+delete [-f] files:
+	Deletes the specified files in the repository and locally. -f forces
+	the delete for writable files, discarding any local changes. -f also
+	forces the delete when the same file was already deleted in SourceSafe
+	(discarding previous history).
 
 label -l <label> files:
 	Tag/label the *head version* of the specified files using the
@@ -461,7 +468,7 @@ cat:
 	print
 
 checkin:
-	ci submit
+	ci submit commit
 
 checkout:
 	co edit
@@ -473,7 +480,7 @@ dir:
 	ls
 
 delete:
-	rm
+	rm del
 
 history:
 	filelog log

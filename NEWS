@@ -1,10 +1,23 @@
-SSU 0.4:
+SSU 0.4: Sat Feb 26 CET 2005
 
 	* Manual get of a single new file would fail with an error.
 
 	* Recursive diff would stop on the first writable file with no error.
 
+	* "checkin" no longer adds new files to the repository: the
+          functionality has been moved to the "add" command.
+
+	* Add of a new file was not an atomic operation (the resulting file
+          could end-up in a different project under heavy server usage).
+
+	* delete can be forced in some circumstances.
+
+	* ssserv stability improvements.
+
 	* Minor cleanups.
+
+	SSU 0.3 clients can communicate with 0.4 as long the new
+	functionalities are not involved (add/delete).
 
 
 SSU 0.3: Fri Feb 18 CET 2005
