@@ -609,8 +609,8 @@ sub addFile($$)
   sendFile($remote, $file) or protoFail();
 
   # reset file permissions
-  chmod(0444, $file);
   expectC($Proto::READY) or protoFail();
+  chmod(0444, $file);
 }
 
 sub add(\%@)

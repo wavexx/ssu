@@ -172,7 +172,7 @@ echo "- delete"
 ss delete test1.txt
 test \! -f test1.txt
 
-echo "- delete 2"
+echo "- delete 2 (requires AUTOREC)"
 touch deltwice
 not ss delete deltwice 2> /dev/null
 ss add -c '' deltwice
@@ -181,8 +181,25 @@ not ss delete deltwice 2> /dev/null
 ss delete -f deltwice
 touch deltwice
 ss add -c '' deltwice
-not ss delete deltwice 2> /dev/null
-ss delete -f deltwice
+ss delete deltwice 2> /dev/null
+
+echo "- delete 3"
+mkdir d3
+touch d3/d3
+ss add -c '' d3/d3
+ss delete d3/d3
+touch d3
+not ss add -c '' d3 2> /dev/null
+
+# now be bastard: trick delete to actually >remove< d3 and then check
+# the -f flag even with AUTOREC enabled. Yes, it's a bug(tm).
+echo "- delete 4"
+chmod -w d3
+ss delete d3
+touch d3
+ss add -c '' d3
+not ss delete d3 2> /dev/null
+ss delete -f d3
 
 # recover
 echo "- recover"

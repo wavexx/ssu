@@ -10,6 +10,8 @@ SSU 0.6:
 
 	* Implemented recover.
 
+	* Improved ssserv "add" to work around SourceSafe limitations.
+
 
 SSU 0.5: Sat Mar 05 CET 2005
 

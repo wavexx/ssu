@@ -118,6 +118,7 @@ sub init($)
   return
   (
     PRUNE => (defined($data{"PRUNE"})? $data{"PRUNE"}: 0),
+    AUTOREC => (defined($data{"AUTOREC"})? $data{"AUTOREC"}: 1),
     PORT => $data{"PORT"} || $Proto::PORT,
     HOME => $data{"HOME"},
     MAPS => $maps
@@ -550,28 +551,60 @@ sub add($)
 
   # ensure file/path correctness
   return cmdFail("add: file already exists") if(ssStdTest($rel));
+
+  # try to recover first
+  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
+  my $recovered = 0;
+
+  if($PARAMS{AUTOREC})
+  {
+    my ($ret) = ssStdExec("recover", "\$/$rel", "-I-");
+    if($ret && -f $new)
+    {
+      # successfully recovered, lock the file
+      my ($ret, $output, $errors) = ssStdExec("checkout", "\$/$rel", "-I-");
+      $ret or return intFail("add: " . sanitize($errors));
+      $recovered = 1;
+    }
+    elsif($ret)
+    {
+      # originally a directory... delete it again (now THIS *IS* crappy)
+      my ($ret, $output, $errors) = ssStdExec("delete", "\$/$rel", "-I-");
+      $ret or return intFail("add: " . sanitize($errors));
+      ssClean();
+    }
+  }
+
+  # fetch the file
   my $dir = dirname($rel);
   ssMkPath($dir) or return intFail("cannot create directory structure");
   sendStr($Proto::READY);
-
-  # fetch the file
   my ($void, $size) = expectCV($Proto::XFER, 2);
-  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
   recvFile($size, $new) or return cmdFail(getErr());
 
-  # before adding we must set the current project (gah!)
-  # ensure the current project is retained (lock everything), as other
-  # commands may interfere.
+  my $ret;
+  my $errors;
+
+  if($recovered)
   {
+    # the file was recovered, do a normal checkin
+    ($ret, my $output, $errors) =
+	ssStdExec("checkin", "\$/$rel", "-I-Y", "-C$comment");
+  }
+  else
+  {
+    # before adding we must set the current project (gah!)
+    # ensure the current project is retained (lock everything), as other
+    # commands may interfere.
     lock($curprj);
-    my ($ret) = ssStdExec("cp", "\$/$dir", "-I-");
+    ($ret) = ssStdExec("cp", "\$/$dir", "-I-");
     $ret or return intFail("cannot set current project");
-    ($ret, my $output, my $errors) =
+    ($ret, my $output, $errors) =
 	ssStdExec("add", $new, "-I-", "-B-", "-C$comment");
-    $ret or return cmdFail("add: " . sanitize($errors));
   }
 
-  return sendStr($Proto::READY);
+  # return status
+  return ($ret? sendStr($Proto::READY): cmdFail("add: " . sanitize($errors)));
 }
 
 sub checkIn($)
