@@ -33,12 +33,19 @@ BEGIN
   $HISTORY	= 207;	# file log/history
   $STATUS	= 208;	# file status
   $LABEL	= 209;	# label/tag the head revision
+  $TEST		= 210;	# test for existente of a file
+  $CKSUM	= 211;	# return the checksum of a file
 
   # shared codes
   $INFO		= 300;	# addictional protocol debugging
   $READY	= 301;	# awaiting commands
   $ERROR	= 302;	# error in request
   $XFER		= 303;	# data transfer request
+
+  # test file types/codes
+  $FREE		= 0;	# no file/dir
+  $FILE		= 1;	# regular file
+  $DIR		= 2;	# directory
 }
 
 use FileHandle;
@@ -69,7 +76,7 @@ sub getErr()
 sub sendStr(@)
 {
   my ($code, $str) = @_;
-  printf("%03d %s\n", $code, ($str? $str: 1)) or
+  printf("%03d %s\n", $code, (defined($str)? $str: 1)) or
       return setErr($!);
 }
 

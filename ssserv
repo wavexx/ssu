@@ -33,7 +33,9 @@ my %FMAP =
   $Proto::DELETE	=> \&delete,
   $Proto::HISTORY	=> \&history,
   $Proto::STATUS	=> \&status,
-  $Proto::LABEL		=> \&label
+  $Proto::LABEL		=> \&label,
+  $Proto::TEST		=> \&test,
+  $Proto::CKSUM		=> \&ckSum
 );
 
 
@@ -329,6 +331,16 @@ sub ssStdExec(@)
   return ssExec($USER{WORK}, @_);
 }
 
+sub ssStdTest($)
+{
+  # test for the presence of a path
+  my $rel = shift;
+
+  # properties seems the fastest way
+  my ($ret) = ssStdExec("properties", "\$/$rel", "-I-");
+  return $ret;
+}
+
 sub ssClean()
 {
   # clean the working environment, but not the dir!
@@ -475,7 +487,7 @@ sub checkIn($)
   $rel or return cmdFail("cannot map \"$path\"");
 
   # see if the file exists and proceed as a standard checkin
-  my ($ret) = ssStdExec("properties", "\$/$rel", "-I-");
+  my $ret = ssStdTest($rel);
   return realCheckIn($path, $rel, $comment) if($ret);
 
   # try to add the file
@@ -634,6 +646,29 @@ sub label($)
   $ret or return cmdFail("label: " . sanitize($errors));
   
   return sendStr($Proto::READY);
+}
+
+sub test($)
+{
+  # check for existence of a file
+  my ($path) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # map the path
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+
+  # check if the file exists first
+  my $ret = ssStdTest($rel);
+  return sendStr($Proto::READY, $Proto::FREE) unless($ret);
+
+  # file/dir
+  $ret = ssStdExec("cp", "\$/$rel", "-I-");
+  return sendStr($Proto::READY, ($ret? $Proto::FILE: $Proto::DIR));
+}
+
+sub cksum($)
+{
 }
 
 
