@@ -4,9 +4,6 @@
 # Distributed under GNU LGPL without ANY warranty.
 use strict;
 use warnings;
-use Parse;
-use Maps;
-use Proto;
 use File::Basename qw{basename dirname};
 use File::Temp qw{tempfile tempdir};
 use File::Path qw{mkpath rmtree};
@@ -15,6 +12,12 @@ use IO::Socket;
 require File::Spec;
 use threads;
 use threads::shared;
+
+use Parse;
+use Maps;
+use Proto;
+use Cksum;
+
 
 # Some defaults
 my $VERSION	= "0.3";
@@ -28,7 +31,7 @@ my %FMAP =
   $Proto::GET		=> \&get,
   $Proto::CHECKOUT	=> \&checkOut,
   $Proto::CHECKIN	=> \&checkIn,
-  $Proto::DIR		=> \&dirListing,
+  $Proto::LIST		=> \&dirListing,
   $Proto::REVERT	=> \&revert,
   $Proto::DELETE	=> \&delete,
   $Proto::HISTORY	=> \&history,
@@ -353,6 +356,20 @@ sub ssClean()
   return 1;
 }
 
+sub readFile($)
+{
+  my ($file) = shift;
+  my $buf = "";
+
+  open(my $fd, "<$file") or return undef;
+  while(my $line = <$fd>) {
+    $buf .= $line;
+  }
+  close($fd);
+
+  return $buf;
+}
+
 sub get($)
 {
   # check arguments
@@ -366,18 +383,12 @@ sub get($)
   $ret or return cmdFail("get: " . sanitize($errors));
 
   # open the file
-  my $buf;
-  my $locCksum = 0;
-  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
-  open(FD, "<$new") or return cmdFail($!);
-  while(<FD>) {
-    $buf .= $_;
-    $locCksum += unpack("%32C*", $_);
-  }
-  close(FD);
+  my $buf = readFile(File::Spec->catfile($USER{WORK}, basename($rel)));
+  defined($buf) or return cmdFail($!);
+  my $locCksum = cksumBuf($buf);
 
   # send the requested file, but only when the checksum is different
-  ((!$cksum || $locCksum != $cksum)?
+  ((!defined($cksum) || ($locCksum != $cksum))?
    sendBuf($path, $buf): sendStr($Proto::READY)) or cmdFail(getErr());
 }
 

@@ -51,7 +51,7 @@ ss history -m1 test1.txt | grep -q "^Comment: comment"
 
 # diff
 echo "- diff"
-ss diff test1.txt
+test -z "`ss diff test1.txt`"
 ss co test1.txt
 echo "new" >> test1.txt
 ss diff -du test1.txt | grep -q "^+new";
@@ -116,6 +116,11 @@ ss diff -du test2.txt test3.txt temp/test4.txt | grep -q "+diff"
 # recursive diff
 echo "- recursive diff"
 ss diff -du . | grep -q "+diff"
+
+echo "- recursive diff 2"
+touch test5.txt
+ss diff -du . > /dev/null
+rm test5.txt
 
 # multiple revert
 echo "- multiple revert"

@@ -18,6 +18,7 @@ use lib "$FindBin::Bin/../lib/ss";
 use Parse;
 use Maps;
 use Proto;
+use Cksum;
 
 
 # Some defaults
@@ -250,7 +251,7 @@ sub dirListing(\%@)
   {
     # map the file
     my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
-    sendStr($Proto::DIR, encArr($remote)) or protoFail();
+    sendStr($Proto::LIST, encArr($remote)) or protoFail();
     my ($void, $size) = expectCV($Proto::XFER, 2);
     $void or protoFail();
     my $buf = recvBuf($size);
@@ -308,10 +309,9 @@ sub history(\%@)
 sub getFile($$)
 {
   my ($remote, $file) = @_;
-  my $cksum = fileCksum($file);
 
   # request the file
-  sendStr($Proto::GET, encArr($remote, $cksum));
+  sendGet($remote, cksumFile($file));
   my ($c, $str) = recvStr();
   (defined $c) or protoFail();
   forceUnlink($file) if(-r $file && $c != $Proto::READY);
@@ -365,7 +365,7 @@ sub getDir($$)
   my ($remote, $file) = @_;
 
   # fetch remote listings
-  sendStr($Proto::DIR, encArr($remote)) or protoFail();
+  sendStr($Proto::LIST, encArr($remote)) or protoFail();
   my ($void, $size) = expectCV($Proto::XFER, 2);
   $void or protoFail();
   my $buf = recvBuf($size);
@@ -570,31 +570,22 @@ sub revert(@)
     @files);
 }
 
-sub fileCksum($)
+sub sendGet($$)
 {
-  my ($file) = @_;
-  my $cksum = 0;
-
-  if(-r $file)
-  {
-    open(FD, "<$file") or fail($!);
-    while(<FD>) {
-      $cksum += unpack("%32C*", $_);
-    }
-    close(FD);
-  }
-
-  return $cksum;
+  my ($remote, $cksum) = @_;
+  sendStr($Proto::GET, 
+	  (defined($cksum)?
+	   encArr($remote, $cksum):
+	   encArr($remote)));
 }
 
 sub diffFile($@)
 {
   my ($file, $flags) = @_;
-  my $cksum = fileCksum($file);
 
   # request the head file
   my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
-  sendStr($Proto::GET, encArr($remote, $cksum));
+  sendGet($remote, cksumFile($file));
   my ($c, $str) = recvStr();
   defined($c) or protoFail();
   return 1 if($c != $Proto::XFER);

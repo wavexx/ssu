@@ -29,7 +29,7 @@ BEGIN
   $CHECKIN	= 203;	# checkin a file
   $REVERT	= 204;	# revert/undoes a checkout
   $DELETE	= 205;	# delete the remote file
-  $DIR		= 206;	# remote directory listing
+  $LIST		= 206;	# remote directory listing
   $HISTORY	= 207;	# file log/history
   $STATUS	= 208;	# file status
   $LABEL	= 209;	# label/tag the head revision
