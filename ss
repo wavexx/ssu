@@ -199,7 +199,7 @@ sub init($)
   }
 
   # check for home dir
-  my $home = $data{"HOME"};
+  my $home = File::Spec->canonpath($data{"HOME"});
   File::Spec->file_name_is_absolute($home) or
       fail("HOME must be absolute");
 
@@ -226,7 +226,11 @@ sub prune($)
 {
   my ($dir) = @_;
 
-  return 1 if(!$PARAMS{PRUNE} || $dir eq $PARAMS{HOME});
+  if(!$PARAMS{PRUNE} || ($dir eq File::Spec->curdir()) ||
+     (rel2abs($dir) eq $PARAMS{HOME})) {
+    return 1;
+  }
+
   rmdir($dir) and prune(dirname($dir));
 }
 
