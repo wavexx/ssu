@@ -184,6 +184,15 @@ ss add -c '' deltwice
 not ss delete deltwice 2> /dev/null
 ss delete -f deltwice
 
+# recover
+echo "- recover"
+echo test > recover
+ss add -c '' recover
+ss delete recover
+ss recover recover > /dev/null
+expr "`cat recover`" = "test" > /dev/null
+ss delete recover
+
 # multiple add
 echo "- multiple add"
 touch test2.txt test3.txt
@@ -280,6 +289,14 @@ ss delete test2.txt test3.txt
 echo "- recursive delete"
 expr "`ss delete temp`" = "deleting temp/test4.txt" > /dev/null
 test \! -d temp
+
+# multiple recover
+echo "- multiple recover"
+touch recover1 recover2
+ss add -c '' recover1 recover2
+ss delete recover1 recover2
+ss recover recover1 recover2 > /dev/null
+ss delete recover1 recover2
 
 # check file consistency across calls
 fcheck()

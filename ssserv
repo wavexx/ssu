@@ -38,7 +38,8 @@ my %FMAP =
   $Proto::LABEL		=> \&label,
   $Proto::TEST		=> \&test,
   $Proto::CKSUM		=> \&ckSum,
-  $Proto::ADD		=> \&add
+  $Proto::ADD		=> \&add,
+  $Proto::RECOVER	=> \&recover
 );
 
 
@@ -805,6 +806,22 @@ sub ckSum($)
   # return the checksum
   my $cksum = cksumFile(File::Spec->catfile($USER{WORK}, basename($rel)));
   return (defined($cksum)? sendStr($Proto::READY, encArr($cksum)): cmdFail($!));
+}
+
+sub recover($)
+{
+  # check arguments
+  my ($path) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # recover the file
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+  my ($ret, $output, $errors) =
+      ssStdExec("recover", "\$/$rel", "-I-", "-W");
+  $ret or return cmdFail("recover: " . sanitize($errors));
+
+  return sendStr($Proto::READY);
 }
 
 

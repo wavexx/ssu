@@ -36,6 +36,7 @@ BEGIN
   $TEST		= 210;	# test for existente of a file
   $CKSUM	= 211;	# return the checksum of a file
   $ADD		= 212;	# add a new file
+  $RECOVER	= 213;	# recover a deleted file or project
 
   # shared codes
   $INFO		= 300;	# addictional protocol debugging

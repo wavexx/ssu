@@ -45,6 +45,7 @@ my %CMAP =
   "delete"		=> ["f",	\&delete],
   "label"		=> ["l:",	\&label],
   "cat"			=> ["h",	\&cat],
+  "recover"		=> ["",		\&recover],
   "version"		=> ["",		\&version]
 );
 
@@ -403,17 +404,20 @@ sub getDir($$)
   }
 
   # At that point we should purge local files with no remote equivalents
-  finddepth2(
-    sub
-    {
-      if(-f $_ && !-w $_ && !defined($files{rel2abs($_)}))
+  if(-e $file)
+  {
+    finddepth2(
+      sub
       {
-	forceUnlink($_);
-	prune(dirname($_));
-	msg("D $_");
-      }
-    },
-    $file);
+	if(-f $_ && !-w $_ && !defined($files{rel2abs($_)}))
+	{
+	  forceUnlink($_);
+	  prune(dirname($_));
+	  msg("D $_");
+	}
+      },
+      $file);
+  }
 }
 
 sub get(\%@)
@@ -973,6 +977,27 @@ sub readComment($$)
   fail($!) unless(defined($comment));
 
   return $comment;
+}
+
+sub recover(\%$)
+{
+  my ($flags, @files) = @_;
+
+  foreach my $file(@files)
+  {
+    # basic checks
+    (-e $file) and fail("\"$file\" should not exist");
+
+    # map and recover the file
+    my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
+    sendStr($Proto::RECOVER, encArr($remote));
+    expectC($Proto::READY) or protoFail();
+
+    # now get the file (this handles correcty recover of projects)
+    getDir($remote, $file);
+  }
+
+  return 1;
 }
 
 
