@@ -19,7 +19,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.4";
+my $VERSION	= "0.5";
 my $INI_PATH	= "ssserv.ini";
 my %PARAMS;
 my %USER;
@@ -405,23 +405,52 @@ sub readFile($)
 sub get($)
 {
   # check arguments
-  my ($path, $cksum) = decArr(shift);
+  my ($path, $arg) = decArr(shift);
   $path or return synFail("expecting a path");
+
+  # decompose arg
+  my $cksum;
+  my $version;
+
+  if(defined($arg))
+  {
+    if($arg =~ /^(\d*)#(\d+)$/)
+    {
+      $cksum = $1;
+      $version = $2;
+    }
+    elsif($arg =~ /^(\d*)\@([\d\w]+)$/)
+    {
+      $cksum = $1;
+      $version = "L$2";
+    }
+    elsif($arg =~ /^\d+$/) {
+      $cksum = $arg;
+    } else {
+      return synFail("bad argument");
+    }
+
+    # fix unspecified cksum
+    if(defined($cksum) && ($cksum eq "")) {
+      $cksum = undef;
+    }
+  }
 
   # map and fetch the file
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
-  my ($ret, $output, $errors) = ssStdExec("get", "\$/$rel", "-W", "-I-");
+
+  my @args = ("get", "\$/$rel", "-W", "-I-");
+  push(@args, "-V$version") if(defined($version));
+  my ($ret, $output, $errors) = ssStdExec(@args);
   $ret or return cmdFail("get: " . sanitize($errors));
 
   # open the file
   my $buf = readFile(File::Spec->catfile($USER{WORK}, basename($rel)));
   defined($buf) or return cmdFail($!);
-  my $locCksum = cksumBuf($buf);
 
-  # send the requested file, but only when the checksum is different
-  ((!defined($cksum) || ($locCksum != $cksum))?
-   sendBuf($path, $buf): sendStr($Proto::READY)) or cmdFail(getErr());
+  my $send = (!defined($cksum) || (cksumBuf($buf) != $cksum));
+  ($send? sendBuf($path, $buf): sendStr($Proto::READY)) or cmdFail(getErr());
 }
 
 sub checkOut($)
@@ -513,7 +542,7 @@ sub add($)
     my ($ret) = ssStdExec("cp", "\$/$dir", "-I-");
     $ret or return intFail("cannot set current project");
     ($ret, my $output, my $errors) =
-	ssStdExec("add", $new, "-I-", "-C$comment");
+	ssStdExec("add", $new, "-I-", "-B-", "-C$comment");
     $ret or return cmdFail("add: " . sanitize($errors));
   }
 
@@ -690,14 +719,30 @@ sub status($)
 sub label($)
 {
   # check arguments
-  my ($path, $label) = decArr(shift);
+  my ($path, $label, $arg) = decArr(shift);
   ($path and $label) or return synFail("expecting a path/label");
+
+  # decompose arg
+  my $version;
+
+  if(defined($arg))
+  {
+    if($arg =~ /^#(\d+)$/) {
+      $version = $1;
+    } elsif($arg =~ /^\@([\d\w]+)$/) {
+      $version = "L$1";
+    } else {
+      return synFail("bad version");
+    }
+  }
 
   # map the path and label the head revision
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
-  my ($ret, $output, $errors) =
-      ssStdExec("label", "\$/$rel", "-I-", "-L$label");
+
+  my @args = ("label", "\$/$rel", "-I-Y", "-L$label");
+  push(@args, "-V$version") if(defined($version));
+  my ($ret, $output, $errors) = ssStdExec(@args);
   $ret or return cmdFail("label: " . sanitize($errors));
   
   return sendStr($Proto::READY);

@@ -22,7 +22,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.4";
+my $VERSION	= "0.5";
 my $RC_PATH	= ".ssrc";
 my $D_PATH	= "$ENV{HOME}/.ss.d";
 my $EDITOR	= $ENV{VISUAL} || $ENV{EDITOR} || "vi";
@@ -67,6 +67,7 @@ my %AMAP =
   "filelog"		=> "history",
   "log"			=> "history",
   "properties"		=> "status",
+  "print"		=> "cat",
   "tag"			=> "label",
   ""			=> "version"
 );
@@ -726,6 +727,13 @@ sub delete(@)
     @files);
 }
 
+sub fileVersion($)
+{
+  my $file = shift;
+  return ($file =~ /^(.*)(\@[\d\w]+|#\d+)$/?
+	  ($1, $2): ($file, undef));
+}
+
 sub label(@)
 {
   my ($flags, @files) = @_;
@@ -734,19 +742,20 @@ sub label(@)
   foreach my $file(@files)
   {
     # label the file/dir
+    ($file, my $version) = fileVersion($file);
     my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
-    sendStr($Proto::LABEL, encArr($remote, $label));
+    sendStr($Proto::LABEL, encArr($remote, $label, $version));
     my $code = expectC($Proto::READY) or protoFail();
   }
 }
 
-sub catFile($)
+sub catFile($$)
 {
-  my ($file) = @_;
+  my ($file, $version) = @_;
 
   # request the file
   my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
-  sendStr($Proto::GET, encArr($remote));
+  sendStr($Proto::GET, encArr($remote, $version));
   my ($void, $size) = expectCV($Proto::XFER, 2);
   $void or protoFail();
 
@@ -765,7 +774,8 @@ sub cat(@)
   foreach my $file(@files)
   {
     print STDOUT "==== $file ====\n" if($header);
-    catFile($file);
+    ($file, my $version) = fileVersion($file);
+    catFile($file, $version);
   }
 }
 

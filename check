@@ -100,7 +100,27 @@ ss status test1.txt | grep -q "Last Label: *alabel"
 # cat
 echo "- cat"
 ss cat test1.txt > /dev/null
-ss cat -h test1.txt > /dev/null
+ss cat -h test1.txt | grep -q "^==== ";
+
+echo "- cat 2"
+not ss cat test1.txt#0 2> /dev/null
+not ss cat test1.txt#alabel 2> /dev/null
+ss cat test1.txt#1 > /dev/null
+not ss cat test1.txt@0 2> /dev/null
+ss cat test1.txt@alabel > /dev/null
+
+# go on with label
+echo "- label 2"
+echo "rev1" > labeltest
+ss add -c '' labeltest
+ss co labeltest
+echo "rev2" > labeltest
+ss ci -c '' labeltest
+ss label -llabeltest labeltest#1
+ss cat labeltest@labeltest | grep -q "^rev1$"
+ss label -lnewlabel labeltest@labeltest
+ss cat labeltest@newlabel | grep -q "^rev1$"
+ss rm labeltest
 
 # delete
 echo "- delete"
@@ -210,16 +230,39 @@ test \! -d temp
 fcheck()
 {
     cp "$1" "$1.tmp"
+
+    # add the file
     ss add -c '' "$1"
+    ss label -lfcheck "$1"
+
+    # re-get
     rm -f "$1"
     ss get "$1" > /dev/null
     cmp -s "$1" "$1.tmp"
+
+    # modify and revert
     ss co "$1"
     cmp -s "$1" "$1.tmp"
     echo line >> "$1"
     ss revert "$1"
     cmp -s "$1" "$1.tmp"
-    rm "$1.tmp"
+
+    # modify and checkin
+    ss co "$1"
+    echo line >> "$1"
+    cp "$1" "$1.tmp2"
+    ss ci -c '' "$1"
+    cmp -s "$1" "$1.tmp2"
+
+    # fetch old versions by number
+    ss cat "$1#1" > "$1.tmp3"
+    cmp -s "$1.tmp" "$1.tmp3"
+
+    # fetch by label
+    ss cat "$1@fcheck" > "$1.tmp3"
+    cmp -s "$1.tmp" "$1.tmp3"
+
+    rm "$1.tmp" "$1.tmp2" "$1.tmp3"
     ss delete "$1"
 }
 
