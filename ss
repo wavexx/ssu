@@ -40,7 +40,7 @@ my %CMAP =
   "history"		=> ["m:",	\&history],
   "status"		=> ["",		\&status],
   "diff"		=> ["d:",	\&diff],
-  "delete"		=> ["",		\&delete],
+  "delete"		=> ["f",	\&delete],
   "label"		=> ["l:",	\&label],
   "cat"			=> ["h",	\&cat],
   "version"		=> ["",		\&version]
@@ -692,13 +692,13 @@ sub diff(@)
     @files);
 }
 
-sub deleteFile($)
+sub deleteFile($$)
 {
-  my ($file) = @_;
+  my ($file, $force) = @_;
 
   # remove the file remotely first
   my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
-  sendStr($Proto::DELETE, encArr($remote));
+  sendStr($Proto::DELETE, encArr($remote, $force));
   my $code = expectC($Proto::READY) or protoFail();
 
   # remove the file locally
@@ -709,15 +709,19 @@ sub deleteFile($)
 sub delete(@)
 {
   my ($flags, @files) = @_;
+  my $force = defined($flags->{"f"});
 
   filedirExec(
-    \&deleteFile,
+    sub
+    {
+      deleteFile($_, $force);
+    },
     sub
     {
       if(-f $_)
       {
 	msg("deleting $_");
-	deleteFile($_);
+	deleteFile($_, $force);
       }
     },
     @files);

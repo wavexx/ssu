@@ -592,13 +592,14 @@ sub revert($)
 sub delete($)
 {
   # check arguments
-  my ($path) = decArr(shift);
+  my ($path, $force) = decArr(shift);
   $path or return synFail("expecting a path");
+  $force = ($force? "Y": "N");
 
   # delete the file or project
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
-  my ($ret, $output, $errors) = ssStdExec("delete", "\$/$rel", "-I-");
+  my ($ret, $output, $errors) = ssStdExec("delete", "\$/$rel", "-I-$force");
   $ret or return cmdFail("delete: " . sanitize($errors));
 
   # prune the hierarchy only if requested

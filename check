@@ -98,6 +98,18 @@ echo "- delete"
 ss delete test1.txt
 test \! -f test1.txt
 
+echo "- delete 2"
+touch deltwice
+not ss delete deltwice 2> /dev/null
+ss add deltwice
+ss co deltwice
+not ss delete deltwice 2> /dev/null
+ss delete -f deltwice
+touch deltwice
+ss add deltwice
+not ss delete deltwice 2> /dev/null
+ss delete -f deltwice
+
 # multiple add
 echo "- multiple add"
 touch test2.txt test3.txt
