@@ -35,12 +35,13 @@ BEGIN
   $LABEL	= 209;	# label/tag the head revision
   $TEST		= 210;	# test for existente of a file
   $CKSUM	= 211;	# return the checksum of a file
+  $ADD		= 212;	# add a new file
 
   # shared codes
   $INFO		= 300;	# addictional protocol debugging
   $READY	= 301;	# awaiting commands
   $ERROR	= 302;	# error in request
-  $XFER		= 303;	# data transfer request
+  $XFER		= 303;	# inbound data transfer request
 
   # test file types/codes
   $FREE		= 0;	# no file/dir

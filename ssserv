@@ -38,7 +38,8 @@ my %FMAP =
   $Proto::STATUS	=> \&status,
   $Proto::LABEL		=> \&label,
   $Proto::TEST		=> \&test,
-  $Proto::CKSUM		=> \&ckSum
+  $Proto::CKSUM		=> \&ckSum,
+  $Proto::ADD		=> \&add
 );
 
 
@@ -410,25 +411,6 @@ sub checkOut($)
   sendFile($path, $new) or cmdFail(getErr());
 }
 
-sub realCheckIn($$$)
-{
-  # vanilla checkin
-  my ($path, $rel, $comment) = @_;
-  sendStr($Proto::READY);
-
-  # fetch the file
-  my ($void, $size) = expectCV($Proto::XFER, 2);
-  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
-  recvFile($size, $new) or return cmdFail(getErr());
-
-  # commit
-  my ($ret, $output, $errors) =
-      ssStdExec("checkin", "\$/$rel", "-I-Y", "-C$comment");
-  $ret or return cmdFail("checkin: " . sanitize($errors));
-
-  return sendStr($Proto::READY);
-}
-
 sub ssMkPath($)
 {
   my $dir = shift;
@@ -464,12 +446,20 @@ sub ssRmPath($)
   return ssRmPath(dirname($dir));
 }
 
-sub newCheckIn($$$)
+sub add($)
 {
-  my ($path, $rel, $comment) = @_;
-  my $dir = dirname($rel);
+  # check arguments
+  my ($path, $comment) = decArr(shift);
+  $path or return synFail("expecting a path");
+  $comment = "" if(!$comment);
 
-  # try to recreate the directory structure first
+  # map the path
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+
+  # ensure file/path correctness
+  return cmdFail("add: file already exists") if(ssStdTest($rel));
+  my $dir = dirname($rel);
   ssMkPath($dir) or return intFail("cannot create directory structure");
   sendStr($Proto::READY);
 
@@ -487,7 +477,7 @@ sub newCheckIn($$$)
     $ret or return intFail("cannot set current project");
     ($ret, my $output, my $errors) =
 	ssStdExec("add", $new, "-I-", "-C$comment");
-    $ret or return cmdFail("checkin: " . sanitize($errors));
+    $ret or return cmdFail("add: " . sanitize($errors));
   }
 
   return sendStr($Proto::READY);
@@ -500,16 +490,25 @@ sub checkIn($)
   $path or return synFail("expecting a path");
   $comment = "" if(!$comment);
 
-  # checkin implies add, and also recreates the directory structure
+  # map the path
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
 
-  # see if the file exists and proceed as a standard checkin
-  my $ret = ssStdTest($rel);
-  return realCheckIn($path, $rel, $comment) if($ret);
+  # test for the file
+  return cmdFail("checkin: file does not exist") unless(ssStdTest($rel));
+  sendStr($Proto::READY);
 
-  # try to add the file
-  return newCheckIn($path, $rel, $comment);
+  # fetch the file
+  my ($void, $size) = expectCV($Proto::XFER, 2);
+  my $new = File::Spec->catfile($USER{WORK}, basename($rel));
+  recvFile($size, $new) or return cmdFail(getErr());
+
+  # commit
+  my ($ret, $output, $errors) =
+      ssStdExec("checkin", "\$/$rel", "-I-Y", "-C$comment");
+  $ret or return cmdFail("checkin: " . sanitize($errors));
+
+  return sendStr($Proto::READY);
 }
 
 sub parseListing($$)

@@ -10,6 +10,11 @@ then
     exit 1
 fi
 
+not()
+{
+    ("$@") && false || true
+}
+
 # prepare the directory
 rm -rf "$work"
 mkdir -p "$work"
@@ -18,8 +23,11 @@ cd "$work"
 # checkin a new file
 echo "- add"
 echo test > test1.txt
-ss ci test1.txt
+ss add test1.txt
 test \! -w test1.txt
+
+echo "- add 2"
+not ss add test1.txt 2> /dev/null
 
 # checkout the file
 echo "- checkout"
@@ -31,6 +39,11 @@ echo "- checkin"
 echo >> test1.txt
 ss ci -c 'comment' test1.txt
 test \! -w test1.txt
+
+echo "- checkin 2"
+echo > test2.txt
+not ss ci test2.txt 2> /dev/null
+rm test2.txt
 
 # get
 echo "- get"
@@ -88,13 +101,13 @@ test \! -f test1.txt
 # multiple add
 echo "- multiple add"
 touch test2.txt test3.txt
-ss ci -c 'multiple add' test2.txt test3.txt
+ss add -c 'multiple add' test2.txt test3.txt
 
 # recursive add
 echo "- recursive add"
 mkdir temp
 touch temp/test4.txt
-expr "`ss ci .`" = "checking-in ./temp/test4.txt" > /dev/null
+expr "`ss add .`" = "adding ./temp/test4.txt" > /dev/null
 
 # multiple checkout
 echo "- multiple checkout"
@@ -104,12 +117,26 @@ ss co test2.txt test3.txt
 echo "- recursive checkout"
 expr "`ss co .`" = "checking-out ./temp/test4.txt" > /dev/null
 
+# multiple checkin
+echo "- multiple checkin"
+ss ci -c 'multiple checkin' test2.txt test3.txt
+
+# recursive checkin
+echo "- recursive checkin"
+expr "`ss ci .`" = "checking-in ./temp/test4.txt" > /dev/null
+
+echo "- recursive checkin 2"
+touch test1.txt
+expr "`ss ci .`" = "? ./test1.txt" > /dev/null
+rm test1.txt
+
 # multiple history
 echo "- multiple history"
 ss history . test2.txt test3.txt > /dev/null
 
 # multiple diff
 echo "- multiple diff"
+ss co temp/test4.txt
 echo "diff" >> temp/test4.txt
 ss diff -du test2.txt test3.txt temp/test4.txt | grep -q "+diff"
 
@@ -124,6 +151,7 @@ rm test5.txt
 
 # multiple revert
 echo "- multiple revert"
+ss co test2.txt test3.txt
 ss revert test2.txt test3.txt
 
 # recursive revert
@@ -156,6 +184,32 @@ ss delete test2.txt test3.txt
 echo "- recursive delete"
 expr "`ss delete .`" = "deleting ./temp/test4.txt" > /dev/null
 test \! -d temp
+
+# check file consistency across calls
+fcheck()
+{
+    cp "$1" "$1.tmp"
+    ss add "$1"
+    rm -f "$1"
+    ss get "$1" > /dev/null
+    cmp -s "$1" "$1.tmp"
+    ss co "$1"
+    cmp -s "$1" "$1.tmp"
+    echo line >> "$1"
+    ss revert "$1"
+    cmp -s "$1" "$1.tmp"
+    rm "$1.tmp"
+    ss delete "$1"
+}
+
+echo "- empty file consistency"
+touch empty
+fcheck empty
+
+echo "- text file consistency"
+echo line1 > text
+echo line2 > text
+fcheck text
 
 # finished
 echo "completed"

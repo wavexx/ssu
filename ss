@@ -31,6 +31,7 @@ my %PARAMS;
 # command to handler maps.
 my %CMAP =
 (
+  "add"			=> ["c:",	\&add],
   "get"			=> ["",		\&get],
   "checkout"		=> ["",		\&checkOut],
   "checkin"		=> ["c:",	\&checkIn],
@@ -53,6 +54,7 @@ my %AMAP =
   "up"			=> "get",
   "ci"			=> "checkin",
   "submit"		=> "checkin",
+  "commit"		=> "checkin",
   "co"			=> "checkout",
   "edit"		=> "checkout",
   "undo"		=> "revert",
@@ -60,6 +62,7 @@ my %AMAP =
   "undocheckout"	=> "revert",
   "ls"			=> "dir",
   "rm"			=> "delete",
+  "del"			=> "delete",
   "filelog"		=> "history",
   "log"			=> "history",
   "properties"		=> "status",
@@ -494,6 +497,16 @@ sub checkOut(@)
     @files);
 }
 
+sub checkInShared($$)
+{
+  my ($remote, $file) = @_;
+  sendFile($remote, $file) or protoFail();
+
+  # reset file permissions
+  chmod(0444, $file);
+  expectC($Proto::READY) or protoFail();
+}
+
 sub checkInFile($$)
 {
   my ($file, $comment) = @_;
@@ -505,11 +518,26 @@ sub checkInFile($$)
   # request checkin
   sendStr($Proto::CHECKIN, encArr($remote, $comment));
   my $code = expectC($Proto::READY) or protoFail();
-  sendFile($remote, $file) or protoFail();
+  checkInShared($remote, $file);
+}
 
-  # reset file permissions
-  chmod(0444, $file);
-  expectC($Proto::READY) or protoFail();
+sub checkInExt($$)
+{
+  my ($file, $comment) = @_;
+
+  # like checkInFile, but verbose
+  my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
+  sendStr($Proto::CHECKIN, encArr($remote, $comment));
+  my ($c, $str) = recvStr();
+  defined($c) and ($c == $Proto::ERROR || $c == $Proto::READY) or protoFail();
+
+  if($c == $Proto::ERROR) {
+    msg("? $file");
+  } else
+  {
+    msg("checking-in $file");
+    checkInShared($remote, $file);
+  }
 }
 
 sub checkIn(@)
@@ -526,8 +554,46 @@ sub checkIn(@)
     {
       if(-f $_ && -w $_)
       {
-	msg("checking-in $_");
-	checkInFile($_, $comment);
+	checkInExt($_, $comment);
+      }
+    },
+    @files);
+}
+
+sub addFile($$)
+{
+  my ($file, $comment) = @_;
+
+  # file should be writable
+  (-w $file) or fail("\"$file\" already present");
+  my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
+
+  # request add
+  sendStr($Proto::ADD, encArr($remote, $comment));
+  my $code = expectC($Proto::READY) or protoFail();
+  sendFile($remote, $file) or protoFail();
+
+  # reset file permissions
+  chmod(0444, $file);
+  expectC($Proto::READY) or protoFail();
+}
+
+sub add(@)
+{
+  my ($flags, @files) = @_;
+  my $comment = $flags->{"c"} || "";
+
+  filedirExec(
+    sub
+    {
+      addFile($_, $comment);
+    },
+    sub
+    {
+      if(-f $_ && -w $_)
+      {
+	msg("adding $_");
+	addFile($_, $comment);
       }
     },
     @files);
@@ -599,7 +665,7 @@ sub diffFile($@)
   recvFile($size, $temp) or protoFail();
 
   # diff the output
-  print STDOUT "=== $remote - $file ===\n";
+  print STDOUT "==== $remote - $file ====\n";
   STDOUT->flush();
 
   my @args = ("diff");
@@ -695,7 +761,7 @@ sub cat(@)
 
   foreach my $file(@files)
   {
-    print STDOUT "=== $file ===\n" if($header);
+    print STDOUT "==== $file ====\n" if($header);
     catFile($file);
   }
 }
