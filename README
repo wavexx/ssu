@@ -11,12 +11,13 @@ Introduction
 Purpose
 -------
 
-Until now, Unix developers which required access to a SourceSafe repository had
-to use a Windows machine or, in the lucky case that the architecture was
-standard enough, pay another time. SSU provides access to local *and* remote
-SourceSafe repositories through TCP, to any platform, and for **free**,
-alleviating the pain. SSU also improves the SourceSafe interface and tries to
-work around several design bugs.
+Until now, Unix developers which required access to a SourceSafe repository
+(formerly Visual SourceSafe) had to use a Windows machine or, in the lucky case
+that the architecture was standard enough, pay another time. SSU provides
+access to local *and* remote SourceSafe repositories through TCP, to any POSIX
+system (Linux, BSDs, OS X, etc), and for *free*, alleviating the pain. SSU
+also improves the SourceSafe interface and tries to work around several design
+bugs.
 
 Requirements
 ------------
@@ -123,13 +124,38 @@ MAP
 ---
 
 Developers with experience with Perforce_ will be delighted to know that MAP
-works in the same concept as the "View" field (in fact, the Perforce `Workspace
-documentation`_ may be worth reading).
-
-Basically MAP is a list of pairs, each one containing the source path, and the
-destination path::
+works in the same concept as the "View" field. SSU performs a double path
+translation to give a "network transparent filesystem" independent of the
+original repository layout. Basically MAP is a list of pairs, each one
+containing the source path, and the destination path::
 
   MAP=source destination
+
+MAP performs a path translation by matching a path prefix against "source" and
+replacing it to "destination". Consider the following client example::
+
+  HOME=/home/user
+  MAP=project db/project
+
+and this sample path::
+
+  /home/user/project/file.c
+
+First, the HOME prefix is removed, giving "project/file.c"; then the first map
+is matched, replacing "project" with "db/project" and yielding the network path
+"db/project/file.c". The path is now translated again in the server, but this
+time "destination" is used directly as the final repository location::
+
+  MAP=db C:\\SSAFE_DB
+
+"db" is replaced with ``C:\SSAFE_DB``, giving ``C:\SSAFE_DB $/project/file.c``.
+
+As a recommendation for the client, you should point HOME to the directory
+containing your shared projects. Each project should have a MAP entry,
+consisting of the directory name (that will contain your project) as the left
+side, and the "repository name/project name" as the right side. On the server
+simply give repository names and paths. This will give good flexibility and
+reorganization possibilities on the long term.
 
 Multiple mappings can be specified::
 
@@ -146,9 +172,8 @@ eg::
 
   MAP="a source" desti\\nation
 
-The source path is always relative to the HOME directory. When a path matches
-the source mapping it's translated into destination. This feature can be used
-to uniform the project workspace regardless of the repository status::
+The source path is always relative to the HOME directory. Multiple mappings can
+be used to uniform the project workspace regardless of the repository status::
 
   MAP=project/dir db/oldproject/dir \
       project     db/newproject
@@ -485,7 +510,7 @@ diff [-d] files:
 
 diff2 [-d] file1 file2:
 	Like diff, but compares two repository files directly instead
-	(eg: ss diff2 file@date1 file@date2).
+	(eg: ``ss diff2 file@date1 file@date2``).
 
 delete [-f] files:
 	Deletes the specified files in the repository and locally. -f forces
@@ -582,15 +607,15 @@ If you're used to CVS, SubVersion or other serious revision control systems and
 started to work with SSU recently, here's some useful tips to circumvent
 SourceSafe limitations (and more):
 
-* When doing the same operations on several files (like checkout), recursive
-  modes are generally faster on slow links: for example it's faster to do
-  ``ss checkout .`` than ``ss checkout *``.
+* When doing the same operations on several files (like get), recursive modes
+  are generally faster on slow links: for example it's faster to do ``ss get
+  .`` than ``ss get *``.
 
 * A file revision cannot be labelled twice in SourceSafe; SSU inherits the same
   limitation and prevents you from removing the old label. However SourceSafe
   permits to label directories, directories have a version number assigned at
-  each file change and files in a directory inherits the label. Thus always
-  label directories when possible.
+  each file change and child entries inherits the label. Thus always label
+  directories when possible.
 
 * Deleting the same file/project twice in SourceSafe irreversibly destroys
   history. For this reason "ssserv" intentionally avoids destructive
@@ -621,12 +646,15 @@ SourceSafe limitations (and more):
 Support/Mailing list
 ====================
 
-Subscribe to `ssu-users` by sending an empty email to <minimalist@yuv.info>
-with the subject containing `subscribe ssu-users`, or contact the author to get
-support. The list is about discussing bugs and release announcements only.
+Subscribe to `ssu-users` by either sending an empty email to
+<minimalist@yuv.info> with the subject containing `subscribe ssu-users`, using
+GMane_ (group "gmane.comp.version-control.ssu.user") or by contacting the
+author at <wavexx@users.sf.net>. The list is about discussing bugs, usage
+issues and release announcements. The archives are accessible via web through
+http://news.gmane.org/gmane.comp.version-control.ssu.user or via news directly.
 
 
 .. _ActivePerl: http://www.activestate.com/Products/ActivePerl/
 .. _Perforce: http://www.perforce.com/
-.. _Workspace documentation: http://www.perforce.com/perforce/doc.042/manuals/p4guide/04_details.html#1100338
 .. _GNU LGPL: http://www.gnu.org/licenses/lgpl.html
+.. _GMane: http://www.gname.org/
