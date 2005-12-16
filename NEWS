@@ -1,17 +1,18 @@
+SSU 0.7:
+
+	* Internal hash function changed to MD5 (there were known problems with
+	  the old implementation).
+	* 0.7 declared stable.
+
+
 SSU 0.6: Sun Mar 20 CET 2005
 
 	* Revision syntax now supports date/times.
-
 	* Exit status is now compatible with diff(1).
-
 	* checkout speed improvements.
-
 	* Implemented revert -a flag.
-
 	* Implemented recover.
-
 	* Improved ssserv "add" to work around SourceSafe limitations.
-
 	* Minor cleanups.
 
 
@@ -19,35 +20,24 @@ SSU 0.5: Sat Mar 05 CET 2005
 
 	* Fixed several long-standing command-line escaping issues on ssserv
 	  (almost all operations affected, upgrade highly recommended).
-
 	* checkin/add now spawn an editor when no comments are specified on the
           command line.
-
 	* -r (reopen) flag implemented for revert.
-
 	* cat, label and diff can now refer to old file versions.
-
 	* Implemented diff2.
-
 	* Minor cleanups.
 
 
 SSU 0.4: Sat Feb 26 CET 2005
 
 	* Manual get of a single new file would fail with an error.
-
 	* Recursive diff would stop on the first writable file with no error.
-
 	* "checkin" no longer adds new files to the repository: the
           functionality has been moved to the "add" command.
-
 	* Addition of a new file was not an atomic operation (the resulting
           file could end-up in a different project under heavy server usage).
-
 	* delete can be forced in some circumstances.
-
 	* ssserv stability improvements.
-
 	* Minor cleanups.
 
 	SSU 0.3 clients can communicate with 0.4 as long the new
@@ -57,13 +47,9 @@ SSU 0.4: Sat Feb 26 CET 2005
 SSU 0.3: Fri Feb 18 CET 2005
 
 	* Implemented "label" and "cat".
-
 	* Fixed the .ssrc search mechanism (extended to 5 levels).
-
 	* Addition of files in new sub-projects would fail with an error.
-
 	* Removed extra redundant checks in the protocol for latency
           improvements. **WARNING**: this is a protocol-incompatible
           release. Both the client and the server needs to be upgraded.
-
 	* Minor cleanups.

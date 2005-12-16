@@ -36,16 +36,19 @@ automatically with the SourceSafe software).
 
 Only SourceSafe 6.0 has been tested.
 
+Since SSU 0.7 the Digest::MD5 >= 2.11 module is now required (available from
+CPAN_, already installed on most system including ActivePerl).
+
+.. _CPAN: http://search.cpan.org/~gaas/Digest-MD5/
+
 
 Development status
 ------------------
 
-Beta quality. SSU supports and uniforms a good subset of the SourceSafe
-features and has proven to be stable when used by a team of 6 developers
-accessing a single server. SSU has been developed since some months now and
-employs some regression testing, but lacks a significant amount of user testing
-(please report any success): it should *not* be considered of production
-quality.
+Stable. SSU supports and uniforms a good subset of the SourceSafe features and
+has proven to be stable when used by a team of 6 developers accessing a single
+server. SSU has been developed since one year now and employs some regression
+testing. We're interested in feedback, please report any success.
 
 The adoption of Perl was mainly due to its presence in server environments (ss
 works with Perl 5.4 which is still largely installed), but may eventually be
@@ -231,7 +234,9 @@ AUTOREC:
 	file to be deleted "twice", preserving the whole history. There are
 	still situations where automatic recovery is not possible (like
 	addition over an old directory with the same name). In that case delete
-	should be forced to discard the history of the old directory.
+	should be forced to discard the history of the old directory. AUTOREC
+	considerably slows down "add" times, you may want to turn it off
+	temporarily for	large project imports.
 
 
 .ssrc reference
@@ -316,8 +321,6 @@ Limitations
 ss does a great job in uniforming SourceSafe interaction, but still it's
 limited (due to SourceSafe limitations or development status) in some ways:
 
-* SSU should be considered **beta** software.
-
 * Security is actually just an option. Due to command-line madness and
   inconsistencies of the "ss.exe" interface, the access is verified only on the
   first mapped database, and used all along. ".." paths can be used to fool the
@@ -356,16 +359,16 @@ Future developments
 The big mayor step in the SSU development will be a new (and possibly better)
 cooperation model for SourceSafe. As already explained, two users cannot
 checkout the same file at the same time and the "multiple checkouts" option of
-SourceSafe just isn't the way to go.
+SourceSafe does not allow for stable unattended operation.
 
 My intention is to provide an alternate checkout method to the client
 interface. When the alternate checkout method is selected (manually or
-automatically), the original file is stored in ``~/.ss.d``, and the file is
-chmodded read/write. Further updates through get will check for these files,
-and merge the changes by using them as common ancestors (thus moving the merge
-issue locally, using diff3 or the user's favoured merge tool). Checkins will
-simply verify that the latest file was merged and locking the file in the
-repository for a couple of seconds.
+automatically), the original file is stored locally and the file is made
+read/write. Further updates will check for these files, and merge the changes
+by using them as common ancestors (thus moving the merge issue locally, using
+diff3 or the user's favoured merge tool). Checkins will simply verify that the
+latest file was merged and locking the file in the repository for a couple of
+seconds.
 
 SSU however is not meant to be a fully fledged revision control system for
 Unix, just an *aid* where SourceSafe access is required. Consider switching to
@@ -641,6 +644,9 @@ SourceSafe limitations (and more):
 * A file was just deleted from the repository, you wanted to know why but now
   "history" tells nothing more than what you already know. Check the history of
   the parent directory for some more clue.
+
+* When importing for the first time many new source files into the repository,
+  you can consider switching off "AUTOREC" for greater performance.
 
 
 Support/Mailing list

@@ -19,7 +19,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.6";
+my $VERSION	= "0.7";
 my $INI_PATH	= "ssserv.ini";
 my %PARAMS;
 my %USER;
@@ -416,7 +416,7 @@ sub get($)
 
   if(defined($arg))
   {
-    ($cksum, $version) = ($arg =~ /^(\d+)?([@#].*)?$/);
+    ($cksum, $version) = ($arg =~ /^([^@#]+)?([@#].+)?$/);
     return synFail("bad argument") unless(defined($cksum) || defined($version));
 
     if(defined($version))
@@ -447,7 +447,7 @@ sub sendFileCond($$)
   my $buf = readFile($file);
   defined($buf) or return cmdFail($!);
 
-  my $send = (!defined($cksum) || (cksumBuf($buf) != $cksum));
+  my $send = (!defined($cksum) || (cksumBuf($buf) ne $cksum));
   ($send? sendBuf($name, $buf): sendStr($Proto::READY)) or cmdFail(getErr());
 }
 

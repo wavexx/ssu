@@ -22,7 +22,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.6";
+my $VERSION	= "0.7";
 my $RC_PATH	= ".ssrc";
 my $D_PATH	= "$ENV{HOME}/.ss.d";
 my $EDITOR	= $ENV{VISUAL} || $ENV{EDITOR} || "vi";
@@ -660,7 +660,7 @@ sub revertOnly($$$)
   my ($cksum) = expectCV($Proto::READY, 1) or protoFail();
 
   # operate only when the file is identical
-  return 0 if($cksum != cksumFile($file));
+  return 0 if($cksum ne cksumFile($file));
   revertReal($flags, $file, $remote);
 }
 
@@ -794,7 +794,7 @@ sub delete(\%@)
 sub fileVersion($)
 {
   my $file = shift;
-  my ($path, $ver) = ($file =~ /^([^@#]*)([@#].*)?$/);
+  my ($path, $ver) = ($file =~ /^([^@#]+)([@#].+)?$/);
 
   # verify the version a bit before proceeding foolishly
   if(defined($ver))
