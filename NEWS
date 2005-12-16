@@ -1,4 +1,4 @@
-SSU 0.7:
+SSU 0.7: Fri Dec 16 CET 2005
 
 	* Internal hash function changed to MD5 (there were known problems with
 	  the old implementation).
