@@ -18,7 +18,28 @@ require File::Spec;
 
 sub localCanon($)
 {
-  return File::Spec->canonpath(shift);
+  # extended path canonalization
+  $_ = File::Spec->canonpath(shift);
+
+  if($^O ne "MSWin32")
+  {
+    # disallow ... as it's not simmetric when used remotely
+    return undef if(/(^|\/)\.\.\.(\/|$)/);
+
+    # assume UNIX style paths
+    return undef if(/^\/*\.\.\/*$/);
+    while(s:/[^/]+/\.\.(/|$):\1:) {
+      return undef if(/^\/*\.\.\/*$/);
+    }
+  }
+  else
+  {
+    # canonpath on Win32 already fixes paths, just check about bad ones
+    return undef if(/(^|\\)\.\.\.?(\\|$)/);
+  }
+
+  return undef if(/^$/);
+  return $_;
 }
 
 sub parseMaps($$)
@@ -32,6 +53,7 @@ sub parseMaps($$)
   for(my $i = 0; $i < $#words; $i += 2) {
     my $file = localCanon(
       ($home? File::Spec->catdir($home, $words[$i]): $words[$i]));
+    return undef unless(defined($file));
     push(@ret, [$file, $words[$i + 1]]);
   }
   
@@ -45,6 +67,7 @@ sub getMapReal($$$$)
   
   # first cleanup the path
   $file = localCanon($file);
+  return undef unless(defined($file));
 
   # search for a common prefix
   foreach my $map(@$maps)

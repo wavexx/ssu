@@ -323,10 +323,9 @@ limited (due to SourceSafe limitations or development status) in some ways:
 
 * Security is actually just an option. Due to command-line madness and
   inconsistencies of the "ss.exe" interface, the access is verified only on the
-  first mapped database, and used all along. ".." paths can be used to fool the
-  server-side mapping process, as path canonalization is currently poorly
-  implemented. The server process needs total access rights to the file system
-  to be able to use the "ss.exe" command for all users.
+  first mapped database, and used all along. The server process needs total
+  access rights to the directory containing the repository to be able to use
+  the "ss.exe" command for all users.
 
 * Only text files are supported. Line-endings are correctly converted, but
   binary files will get corrupted.

@@ -1,3 +1,12 @@
+SSU 0.8:
+
+	* Fixed case conversion issues leading to occasional path case changes
+	  when updating recursively inside a project sub-directory. Incomplete
+	  removal of phantom files (as created by such updates) was also fixed.
+	* Fixed path canonalization, resolving relative path issues: incomplete
+          client updates and server database escalation.
+
+
 SSU 0.7: Fri Dec 16 CET 2005
 
 	* Internal hash function changed to MD5 (there were known problems with
