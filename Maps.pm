@@ -18,17 +18,7 @@ require File::Spec;
 
 sub localCanon($)
 {
-  my ($file) = @_;
-  $file = File::Spec->canonpath($file);
-  if($] < 5.006) {
-    $file = lc($file) if($^O eq "MSWin32");
-  } else {
-    if(File::Spec->case_tolerant()) {
-      $file = lc($file);
-    }
-  }
-
-  return $file;
+  return File::Spec->canonpath(shift);
 }
 
 sub parseMaps($$)
@@ -62,16 +52,17 @@ sub getMapReal($$$$)
     my $path = $map->[$a];
     
     # check for coincident paths first
-    return ($map->[$a], $map->[$b], File::Spec->curdir()) if($path eq $file);
+    return ($file, $map->[$b], File::Spec->curdir()) if(lc($path) eq lc($file));
 
     # proceed as usual
+    my $lpo = length($path);
     $path .= ($^O eq "MSWin32"? "\\": "/");
     my $lf = length($file);
     my $lp = length($path);
     next if($lf < $lp);
     
-    if(substr($path, 0, $lp) eq substr($file, 0, $lp)) {
-      return ($map->[$a], $map->[$b], substr($file, $lp));
+    if(lc(substr($path, 0, $lp)) eq lc(substr($file, 0, $lp))) {
+      return (substr($file, 0, $lpo), $map->[$b], substr($file, $lp));
     }
   }
 
