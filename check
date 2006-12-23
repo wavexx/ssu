@@ -371,6 +371,14 @@ expr "`ss cat timecheck@$oldtime`" = "`ss cat timecheck#1`" > /dev/null
 expr "`ss cat timecheck@$curtime`" = "`ss cat timecheck#2`" > /dev/null
 ss delete timecheck
 
+echo "- relative update"
+mkdir reltest
+touch reltest/test
+ss add -c '' reltest/test
+cd reltest
+ss up ..
+expr "`ss up ..`" = "" > /dev/null
+
 # finished
 echo "completed"
 exit 0

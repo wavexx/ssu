@@ -9,16 +9,16 @@ BEGIN
   use Exporter;
   use vars qw(@ISA @EXPORT);
   @ISA = qw{Exporter};
-  @EXPORT = qw{&parseMaps &getMap &getInvMap};
+  @EXPORT = qw{&parseMaps &getMap &getInvMap &expCanonPath};
 }
 
 use Text::ParseWords qw{shellwords};
 require File::Spec;
 
 
-sub localCanon($)
+# expanded path canonalization
+sub expCanonPath($)
 {
-  # extended path canonalization
   $_ = File::Spec->canonpath(shift);
 
   if($^O ne "MSWin32")
@@ -51,7 +51,7 @@ sub parseMaps($$)
   return undef if(!($#words % 2) || ($#words < 1));
 
   for(my $i = 0; $i < $#words; $i += 2) {
-    my $file = localCanon(
+    my $file = expCanonPath(
       ($home? File::Spec->catdir($home, $words[$i]): $words[$i]));
     return undef unless(defined($file));
     push(@ret, [$file, $words[$i + 1]]);
@@ -66,7 +66,7 @@ sub getMapReal($$$$)
   my ($file, $maps, $a, $b) = @_;
   
   # first cleanup the path
-  $file = localCanon($file);
+  $file = expCanonPath($file);
   return undef unless(defined($file));
 
   # search for a common prefix

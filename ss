@@ -226,16 +226,21 @@ sub init($)
 }
 
 # prune a directory until HOME
-sub prune($)
+sub pruneCore($)
 {
   my ($dir) = @_;
 
   if(!$PARAMS{PRUNE} || ($dir eq File::Spec->curdir()) ||
-     (rel2abs($dir) eq $PARAMS{HOME})) {
+     ($dir eq $PARAMS{HOME})) {
     return 1;
   }
 
   rmdir($dir) and prune(dirname($dir));
+}
+
+sub prune($)
+{
+  return pruneRoot(expCanonPath(rel2abs(shift)));
 }
 
 sub forceUnlink($)
@@ -394,7 +399,7 @@ sub getDir($$)
   foreach $remote(split("\n", $buf))
   {
     my $file = getInvRelMap($remote, \@{$PARAMS{MAPS}}) or next;
-    $files{rel2abs($file)} = 1;
+    $files{expCanonPath(rel2abs($file))} = 1;
 
     if(-w $file) {
       msg("O $file");
@@ -409,7 +414,7 @@ sub getDir($$)
     finddepth2(
       sub
       {
-	if(-f $_ && !-w $_ && !defined($files{rel2abs($_)}))
+	if(-f $_ && !-w $_ && !defined($files{expCanonPath(rel2abs($_))}))
 	{
 	  forceUnlink($_);
 	  prune(dirname($_));
