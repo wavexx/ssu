@@ -225,13 +225,12 @@ sub init($)
   );
 }
 
-# prune a directory until HOME
+# prune a directory until HOME or current directory
 sub pruneCore($)
 {
   my ($dir) = @_;
 
-  if(!$PARAMS{PRUNE} || ($dir eq File::Spec->curdir()) ||
-     ($dir eq $PARAMS{HOME})) {
+  if(!$PARAMS{PRUNE} || ($dir eq $ENV{PWD}) || ($dir eq $PARAMS{HOME})) {
     return 1;
   }
 

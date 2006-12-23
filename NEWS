@@ -7,6 +7,8 @@ SSU 0.8:
           incomplete client updates and server database escalation.
 	* Changed verb "reverting" to "reverted" in the "revert" command to
           match actual status of the action.
+	* ss now avoids pruning below the current directory in any
+	  circumstance.
 
 
 SSU 0.7: Fri Dec 16 CET 2005
