@@ -56,6 +56,87 @@ works with Perl 5.4 which is still largely installed), but may eventually be
 replaced with something more readable in the future.
 
 
+Why SSU requires a Windows box?
+-------------------------------
+
+I've often been questioned about the requirement of the Windows counterpart,
+and why a tool that accesses the repository directly can't be developed
+instead. To understand the reasons, you need to understand how SourceSafe
+really works:
+
+SourceSafe is a server-less design, there's no difference between the machine
+that hosts the repository (the SMB share server) and any other client. For this
+reason, all clients are in fact servers (or thick clients), sharing the
+repository across an SMB share. There are no direct communications between
+clients, the repository is simply locked on access and updated according to a
+fixed schema.
+
+This design has a number of vital issues:
+
+1. Accessing the repository requires an SMB access to the machine hosting the
+   files. SMB is a NetBIOS service, which is problematic to run across Internet
+   and extremely inefficient to access.
+2. The repository is stored in a custom undisclosed format, and thus can't be
+   accessed directly.
+3. Since all clients access the repository without supervision, a client must
+   be 100% compliant with SourceSafe semantics to avoid interoperability
+   problems, and is responsible for the integrity of the data itself.
+
+Because of "1", most SourceSafe add-ons are sold with the sole purpose of
+accelerating (or just "allowing") remote operations. Because of "2" and "3",
+all add-ons (no exceptions) require a "server" component, and that component
+will use a working SourceSafe installation to access the repository. Because of
+"3", using the real windows client under emulation (as suggested elsewhere),
+besides having the same network performance problems as "1", is extremely
+risky, and can lead to data corruption in case of emulation glitches, network
+outages or crashes.
+
+SSU solves these issues by layering a real client with a simple stateful TCP
+protocol. Since only relevant commands are sent remotely, network performance
+is really good and matches other systems like cvs-pserver. Since the repository
+is never exposed directly, repository data is ensured and client stability is
+no longer relevant. Since SSU provides better serialization and atomicity
+logic, the SSU server performance is often superior than real SourceSafe
+performance when multiple clients are involved.
+
+You don't need to install SSU on the server hosting the files (altough doing so
+will result in better performance); you can use any windows box with a
+SourceSafe installation that has access to the repository as outlined below:
+
+Good I/O and network performance::
+
+  SourceSafe client <-|         +------------+               |-> SSU client
+  SourceSafe client <-|         |   SHARE    |               |-> SSU client
+  SourceSafe client <-|-- lan --| SourceSafe |--| network |--|-> SSU client
+  SourceSafe client <-|         | SSU server |               |-> SSU client
+  SourceSafe client <-|         +------------+               |-> SSU client
+
+Poor I/O, good network performance::
+
+  +------------+         |-> SourceSafe client
+  |   SHARE    |-- lan --|
+  +------------+         |  +------------+               |-> SSU client
+                         |->| SourceSafe |               |-> SSU client
+     SourceSafe Client <-|  | SSU server |--| network |--|-> SSU client
+     SourceSafe Client <-|  +------------+               |-> SSU client
+
+Poor I/O and network performance::
+
+  +---------+         |-> SourceSafe client
+  |  SHARE  |-- lan --|
+  +---------+         |               +------------+         |-> SSU client
+                      |--| network |--| SourceSafe |         |-> SSU client
+  SourceSafe Client <-|               | SSU server |-- lan --|-> SSU client
+  SourceSafe Client <-|               +------------+         |-> SSU client
+
+Having to use a Windows installation may seem a limiting factor for SSU
+deployment, but remember that other alternatives have this implicit limitation
+also. Since SSU ensures better data integrity, better performance, network
+security and doesn't have any cost or specific requirements, any serious
+administrator or project manager interested in your work should consider such a
+request without too much trouble.
+
+
 Installation
 ============
 
@@ -604,7 +685,7 @@ Download
 
 SSU is located at http://www.yuv.info/~wavexx/hacks/ssu/ and distributed under
 the terms of the `GNU LGPL`_ license without *any* warranty. SSU is
-copyright(c) 2005 of Yuri D'Elia <wavexx@users.sf.net>.
+copyright(c) 2005-2006 of Yuri D'Elia <wavexx@users.sf.net>.
 
 
 SourceSafe tips
