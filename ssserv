@@ -19,7 +19,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.7";
+my $VERSION	= "0.8";
 my $INI_PATH	= "ssserv.ini";
 my %PARAMS;
 my %USER;
@@ -430,7 +430,7 @@ sub get($)
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
 
-  my @args = ("get", "\$/$rel", "-W", "-I-");
+  my @args = ("get", "\$/$rel", "-W", "-I-Y");
   push(@args, "-V$version") if(defined($version));
   my ($ret, $output, $errors) = ssStdExec(@args);
   $ret or return cmdFail("get: " . sanitize($errors));
@@ -833,7 +833,7 @@ sub ckSum($)
   $rel or return cmdFail("cannot map \"$path\"");
 
   # fetch the file
-  my ($ret, $output, $errors) = ssStdExec("get", "\$/$rel", "-W", "-I-");
+  my ($ret, $output, $errors) = ssStdExec("get", "\$/$rel", "-W", "-I-Y");
   $ret or return cmdFail("get: " . sanitize($errors));
 
   # return the checksum

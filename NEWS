@@ -1,14 +1,20 @@
-SSU 0.8:
+SSU 0.8: Sat Dec 23 CET 2006
 
 	* Fixed case conversion issues leading to occasional path case changes
 	  when updating recursively inside a project sub-directory. Incomplete
 	  removal of phantom files (as created by such updates) was also fixed.
 	* Fixed path canonalization, resolving known relative path issues:
-          incomplete client updates and server database escalation.
+          incomplete client updates and server database escalation when using
+	  relative paths either directly or through the command line.
 	* Changed verb "reverting" to "reverted" in the "revert" command to
-          match actual status of the action.
-	* ss now avoids pruning below the current directory in any
-	  circumstance.
+          match the actual status of the action.
+	* ss now avoids pruning below the current working directory in any
+	  circumstance, fixing traversal errors with compound commands.
+	* Removing permanently a project in SourceSafe (by using the windows
+          client) would previously cause subsequent versioned operations on the
+          database to fail randomly with "No such file or directory" errors
+          thanks to a totally flawed/unrelated SourceSafe prompt. Fixed by
+          ignoring the prompt.
 
 
 SSU 0.7: Fri Dec 16 CET 2005
