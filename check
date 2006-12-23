@@ -15,11 +15,6 @@ not()
     ("$@") && false || true
 }
 
-now()
-{
-    date "+%Y/%m/%d:%T"
-}
-
 
 # prepare the directory
 rm -rf "$work"
@@ -36,9 +31,9 @@ echo "- add 2"
 not ss add -c '' test1.txt 2> /dev/null
 
 echo "- time check"
-now > timecheck
+echo "rev 1" > timecheck
 ss add -c '' timecheck
-oldtime="`cat timecheck`"
+oldtime="`ss log -m1 timecheck | sed -ne 's/.* Date: \([^\/]*\)\/\([^\/]*\)\/\([^ ]*\)   Time: \([^.]*\)\.\(.*\)/20\3\/\2\/\1:\4:\5:00/p'`"
 
 # checkout the file
 echo "- checkout"
@@ -278,7 +273,7 @@ ss revert test2.txt test3.txt
 
 # recursive revert
 echo "- recursive revert"
-expr "`ss revert .`" = "reverting ./temp/test4.txt" > /dev/null
+expr "`ss revert .`" = "reverted ./temp/test4.txt" > /dev/null
 
 # multiple status
 echo "- multiple status"
@@ -365,12 +360,13 @@ echo line2 >> text
 fcheck text
 
 # check time only at the end, as sourcesafe resolution seems to be limited
-# to minutes....
+# to minutes.... parse the log date to avoid time-skew issues.
+# Add "20" to the year to fix broken log date format...
 echo "- time check 2"
 ss co timecheck
-now > timecheck
+echo "rev 2" > timecheck
 ss ci -c '' timecheck
-curtime="`cat timecheck`"
+curtime="`ss log -m1 timecheck | sed -ne 's/.* Date: \([^\/]*\)\/\([^\/]*\)\/\([^ ]*\)   Time: \([^.]*\)\.\(.*\)/20\3\/\2\/\1:\4:\5:00/p'`"
 expr "`ss cat timecheck@$oldtime`" = "`ss cat timecheck#1`" > /dev/null
 expr "`ss cat timecheck@$curtime`" = "`ss cat timecheck#2`" > /dev/null
 ss delete timecheck
