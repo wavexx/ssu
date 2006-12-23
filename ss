@@ -235,12 +235,12 @@ sub pruneCore($)
     return 1;
   }
 
-  rmdir($dir) and prune(dirname($dir));
+  rmdir($dir) and pruneCore(dirname($dir));
 }
 
 sub prune($)
 {
-  return pruneRoot(expCanonPath(rel2abs(shift)));
+  return pruneCore(expCanonPath(rel2abs(shift)));
 }
 
 sub forceUnlink($)
