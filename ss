@@ -688,7 +688,8 @@ sub revert(\%@)
     sub
     {
       if(-f $_ && -w $_) {
-	revertFile($flags, $_) and msg("reverting $_");
+	my $file = $_;
+	revertFile($flags, $file) and msg("reverted $file");
       }
     },
     @files);
