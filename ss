@@ -364,6 +364,7 @@ sub finddepth2(&@)
       my $oldcwd = cwd();
       $_ = "$File::Find::dir/$_";
       chdir($initial);
+      lstat($_);
       &$code();
       chdir($oldcwd);
       $_ = $tmp;
@@ -400,10 +401,15 @@ sub getDir($$)
     my $file = getInvRelMap($remote, \@{$PARAMS{MAPS}}) or next;
     $files{expCanonPath(rel2abs($file))} = 1;
 
-    if(-w $file) {
-      msg("O $file");
+    lstat($file);
+    if(-e _ && !-f _) {
+      msg("C $file");
     } else {
-      getFile($remote, $file) and msg("U $file");
+      if(-w _) {
+	msg("O $file");
+      } else {
+	getFile($remote, $file) and msg("U $file");
+      }
     }
   }
 
@@ -413,7 +419,7 @@ sub getDir($$)
     finddepth2(
       sub
       {
-	if(-f $_ && !-w $_ && !defined($files{expCanonPath(rel2abs($_))}))
+	if(-f _ && !-w _ && !defined($files{expCanonPath(rel2abs($_))}))
 	{
 	  forceUnlink($_);
 	  prune(dirname($_));
@@ -441,11 +447,12 @@ sub get(\%@)
     # map and fetch the file
     my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
 
-    if(-f $file && -w $file) {
+    lstat($file);
+    if(-f _ && -w _) {
       msg("O $file");
     } else
     {
-      if(-f $file && -r $file)
+      if(-f _ && -r _)
       {
 	# the file already exists, perform a normal update
 	getFile($remote, $file) and msg("U $file");
@@ -499,18 +506,21 @@ sub checkOutFile($)
   }
 }
 
-# launch different commands depending on the argument filetype
-# (used to be more verbose when following directories)
+# launch different commands depending on the argument filetype (either file
+# or directory). Also used to be more verbose when following directories.
 sub filedirExec(&&@)
 {
   my ($cfile, $cdir, @files) = @_;
 
   foreach my $file(@files)
   {
-    if(-d $file) {
+    lstat($file);
+    if(-d _) {
       finddepth2(sub{&$cdir($_)}, @files);
     } else {
-      $_ = $file and &$cfile($file);
+      if(-f _ || !-e _) {
+	$_ = $file and &$cfile($file);
+      }
     }
   }
 }
@@ -523,7 +533,7 @@ sub checkOut(\%@)
     \&checkOutFile,
     sub
     {
-      if(-f $_ && !-w $_)
+      if(-f _ && !-w _)
       {
 	msg("checking-out $_");
 	checkOutFile($_);
@@ -589,7 +599,7 @@ sub checkIn(\%@)
     },
     sub
     {
-      if(-f $_ && -w $_)
+      if(-f _ && -w _)
       {
 	checkInExt($_, $comment);
       }
@@ -629,7 +639,7 @@ sub add(\%@)
     },
     sub
     {
-      if(-f $_ && -w $_)
+      if(-f _ && -w _)
       {
 	msg("adding $_");
 	addFile($_, $comment);
@@ -691,7 +701,7 @@ sub revert(\%@)
     },
     sub
     {
-      if(-f $_ && -w $_) {
+      if(-f _ && -w _) {
 	my $file = $_;
 	revertFile($flags, $file) and msg("reverted $file");
       }
@@ -751,7 +761,7 @@ sub diff(\%@)
       },
       sub
       {
-	diffFile($flags, $_, $version) or $ret = 0 if(-f $_);
+	diffFile($flags, $_, $version) or $ret = 0 if(-f _);
       },
       $file);
   }
@@ -785,7 +795,7 @@ sub delete(\%@)
     },
     sub
     {
-      if(-f $_)
+      if(-f _)
       {
 	msg("deleting $_");
 	deleteFile($_, $force);

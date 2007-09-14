@@ -68,6 +68,16 @@ rm -f test1.txt
 ss get . > /dev/null
 test \! -w test1.txt
 
+echo "- recursive get 2"
+rm -f test1.txt
+touch test2.txt
+ln -s test2.txt test1.txt
+expr "`ss get .`" = "C test1.txt" > /dev/null
+test -w test2.txt
+test -h test1.txt
+rm test2.txt
+rm test1.txt
+
 # history
 echo "- history"
 ss history test1.txt > /dev/null
@@ -75,6 +85,7 @@ ss history -m1 test1.txt | grep -q "^Comment: comment"
 
 # diff
 echo "- diff"
+ss get test1.txt > /dev/null
 test -z "`ss diff test1.txt`"
 ss co test1.txt
 echo "new" >> test1.txt
@@ -96,6 +107,13 @@ ss revert -a test1.txt
 test -w test1.txt
 ss revert test1.txt
 test \! -w test1.txt
+
+# immediate checkout
+echo "- checkout 2"
+rm -f test1.txt
+ss co test1.txt
+test -w test1.txt
+ss revert test1.txt
 
 # status
 echo "- status"
