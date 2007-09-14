@@ -1,332 +1,582 @@
 #!/bin/sh
 # basic testsuite for ss/ssserv
-set -e
 
 # check for parameters
 work="$1"
+func="$2"
 if [ -z "$work" ]
 then
-    echo "$0 <dir>"
+    echo "$0 <dir> [func]"
     exit 1
 fi
 
+# prepare the directory
+rm -rf "$work"
+work="$work/$$"
+mkdir -p "$work"
+cd "$work"
+work="$PWD"
+testno=0
+failno=0
+
+
+# utilities
 not()
 {
     ("$@") && false || true
 }
 
 
-# prepare the directory
-rm -rf "$work"
-mkdir -p "$work"
-cd "$work"
+rt()
+{
+    testno=$(($testno + 1))
+    rm -rf $testno
+    mkdir $testno
+    printf "%2d: %s\n" $testno "$1" 
+    shift
+    ( cd $testno && set -e && $@ 2> /dev/null; )
+    ret=$?
+    rm -rf $testno
+    if [ $ret != 0 ]
+    then
+	failno=$(($failno + 1))
+	echo
+	echo "*** TEST $testno FAILURE REPORT ***"
+	mkdir "${testno}r"
+	echo "+ pwd: $PWD/${testno}r"
+	( cd "${testno}r" && set -ex && $@; )
+	echo
+    fi
+}
 
-# checkin a new file
-echo "- add"
-echo test > test1.txt
-ss add -c '' test1.txt
-test \! -w test1.txt
 
-echo "- add 2"
-not ss add -c '' test1.txt 2> /dev/null
 
-echo "- time check"
-echo "rev 1" > timecheck
-ss add -c '' timecheck
-oldtime="`ss log -m1 timecheck | sed -ne 's/.* Date: \([^\/]*\)\/\([^\/]*\)\/\([^ ]*\)   Time: \([^.]*\)\.\(.*\)/20\3\/\2\/\1:\4:\5:00/p'`"
+# test definitions
+test_add()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    test \! -w test1.txt
+}
 
-# checkout the file
-echo "- checkout"
-ss co test1.txt
-test -w test1.txt
 
-# checkin
-echo "- checkin"
-echo >> test1.txt
-ss ci -c 'comment' test1.txt
-test \! -w test1.txt
+test_add2()
+{
+    not ss add -c '' test1.txt 2> /dev/null
+}
 
-echo "- checkin 2"
-echo > test2.txt
-not ss ci -c '' test2.txt 2> /dev/null
-rm test2.txt
 
-echo "- checkin 3"
-ss co test1.txt
-VISUAL="false" not ss ci test1.txt 2> /dev/null
-VISUAL="touch -t 197001010000" ss ci test1.txt
+test_add3()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    not ss add -c '' test1.txt 2> /dev/null
+}
 
-# get
-echo "- get"
-rm -f test1.txt
-ss get test1.txt > /dev/null
-test \! -w test1.txt
 
-# recursive get
-echo "- recursive get"
-rm -f test1.txt
-ss get . > /dev/null
-test \! -w test1.txt
+test_checkout()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss co test1.txt
+    test -w test1.txt
+}
 
-echo "- recursive get 2"
-rm -f test1.txt
-touch test2.txt
-ln -s test2.txt test1.txt
-expr "`ss get .`" = "C test1.txt" > /dev/null
-test -w test2.txt
-test -h test1.txt
-rm test2.txt
-rm test1.txt
 
-# history
-echo "- history"
-ss history test1.txt > /dev/null
-ss history -m1 test1.txt | grep -q "^Comment: comment"
+test_checkout2()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    rm -f test1.txt
+    ss co test1.txt
+    test -w test1.txt
+    ss revert test1.txt
+}
 
-# diff
-echo "- diff"
-ss get test1.txt > /dev/null
-test -z "`ss diff test1.txt`"
-ss co test1.txt
-echo "new" >> test1.txt
-ss diff -du test1.txt | grep -q "^+new";
 
-# revert the file
-echo "- revert"
-ss revert -r test1.txt
-test -w test1.txt
+test_checkin()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss co test1.txt
+    echo >> test1.txt
+    ss ci -c 'comment' test1.txt
+    test \! -w test1.txt
+}
 
-echo "- revert 2"
-ss revert test1.txt
-test \! -w test1.txt
 
-echo "- revert 3"
-ss co test1.txt
-echo blabla > test1.txt
-ss revert -a test1.txt
-test -w test1.txt
-ss revert test1.txt
-test \! -w test1.txt
+test_checkin2()
+{
+    echo > test2.txt
+    not ss ci -c '' test2.txt 2> /dev/null
+    rm test2.txt
+}
 
-# immediate checkout
-echo "- checkout 2"
-rm -f test1.txt
-ss co test1.txt
-test -w test1.txt
-ss revert test1.txt
 
-# status
-echo "- status"
-ss status test1.txt > /dev/null
+test_checkin3()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss co test1.txt
+    VISUAL="false" not ss ci test1.txt 2> /dev/null
+    VISUAL="touch -t 197001010000" ss ci test1.txt
+}
 
-# dir
-echo "- dir"
-ss dir . | grep -q "^test1.txt"
-ss dir -a . > /dev/null
 
-# label
-echo "- label"
-ss label -lalabel test1.txt
-ss status test1.txt | grep -q "Last Label: *alabel"
+test_get()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    rm -f test1.txt
+    ss get test1.txt > /dev/null
+    test \! -w test1.txt
+}
 
-# cat
-echo "- cat"
-ss cat test1.txt > /dev/null
-ss cat -h test1.txt | grep -q "^==== ";
 
-echo "- cat 2"
-not ss cat test1.txt#0 2> /dev/null
-not ss cat test1.txt#alabel 2> /dev/null
-ss cat test1.txt#1 > /dev/null
-not ss cat test1.txt@0 2> /dev/null
-ss cat test1.txt@alabel > /dev/null
+test_rget()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    rm -f test1.txt
+    ss get . > /dev/null
+    test \! -w test1.txt
+}
 
-# go on with diff
-echo "- diff 2"
-echo "rev1" > difftest
-ss add -c '' difftest
-test -z "`ss diff difftest`"
-test -z "`ss diff difftest#1`"
-ss co difftest
-echo "rev2" > difftest
-ss diff difftest | sed -e '1d' > difftest1
-ss diff difftest#1 | sed -e '1d' > difftest2
-cmp -s difftest1 difftest2
 
-echo "- diff2"
-test -z "`ss diff2 difftest#1 difftest | sed -e '1d'`"
-ss ci -c '' difftest
-ss diff2 difftest#1 difftest#2 | sed -e '1d' > difftest1
-cmp -s difftest1 difftest2
-rm difftest1 difftest2
-ss delete -f difftest
+test_rget2()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    rm -f test1.txt
+    touch test2.txt
+    ln -s test2.txt test1.txt
+    expr "`ss get .`" = "C test1.txt" > /dev/null
+    test -w test2.txt
+    test -h test1.txt
+    rm test2.txt
+    rm test1.txt
+}
 
-# go on with label
-echo "- label 2"
-echo "rev1" > labeltest
-ss add -c '' labeltest
-ss co labeltest
-echo "rev2" > labeltest
-ss ci -c '' labeltest
-ss label -llabeltest labeltest#1
-ss cat labeltest@labeltest | grep -q "^rev1$"
-ss label -lnewlabel labeltest@labeltest
-ss cat labeltest@newlabel | grep -q "^rev1$"
-not ss label -llabeltext labeltest#1 2> /dev/null
 
-echo "- label 3"
-not ss label -l '1nvalid' labeltest@newlabel 2> /dev/null
-ss label -l 'alph4num_3ric-la( la).' labeltest@newlabel
-ss label -l newlabel 'labeltest@alph4num_3ric-la( la).'
-ss rm labeltest
+test_history()
+{
+    echo test > test1.txt
+    ss add -c 'comment' test1.txt
+    ss history test1.txt > /dev/null
+    ss history -m1 test1.txt | grep -q "^Comment: comment"
+}
 
-# delete
-echo "- delete"
-ss delete test1.txt
-test \! -f test1.txt
 
-echo "- delete 2 (requires AUTOREC)"
-touch deltwice
-not ss delete deltwice 2> /dev/null
-ss add -c '' deltwice
-ss co deltwice
-not ss delete deltwice 2> /dev/null
-ss delete -f deltwice
-touch deltwice
-ss add -c '' deltwice
-ss delete deltwice 2> /dev/null
+test_diff()
+{
+    echo test > test1.txt
+    ss add -c 'comment' test1.txt
+    test -z "`ss diff test1.txt`"
+    ss co test1.txt
+    echo "new" >> test1.txt
+    ss diff -du test1.txt | grep -q "^+new";
+}
 
-echo "- delete 3"
-mkdir d3
-touch d3/d3
-ss add -c '' d3/d3
-ss delete d3/d3
-touch d3
-not ss add -c '' d3 2> /dev/null
 
-# now be bastard: trick delete to actually >remove< d3 and then check
-# the -f flag even with AUTOREC enabled. Yes, it's a bug(tm).
-echo "- delete 4"
-chmod -w d3
-ss delete d3
-touch d3
-ss add -c '' d3
-not ss delete d3 2> /dev/null
-ss delete -f d3
+test_revert()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss co test1.txt
+    echo "new" >> test1.txt
+    ss revert -r test1.txt
+    test -w test1.txt
+}
 
-# recover
-echo "- recover"
-echo test > recover
-ss add -c '' recover
-ss delete recover
-ss recover recover > /dev/null
-expr "`cat recover`" = "test" > /dev/null
-ss delete recover
 
-# multiple add
-echo "- multiple add"
-touch test2.txt test3.txt
-ss add -c 'multiple add' test2.txt test3.txt
+test_revert2()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss co test1.txt
+    echo "new" >> test1.txt
+    ss revert test1.txt
+    test \! -w test1.txt
+}
 
-# recursive add
-echo "- recursive add"
-mkdir temp
-touch temp/test4.txt
-expr "`ss add -c '' .`" = "adding ./temp/test4.txt" > /dev/null
 
-# multiple checkout
-echo "- multiple checkout"
-ss co test2.txt test3.txt
+test_revert3()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss co test1.txt
+    echo blabla > test1.txt
+    ss revert -a test1.txt
+    test -w test1.txt
+    ss revert test1.txt
+    test \! -w test1.txt
+}
 
-# recursive checkout
-echo "- recursive checkout"
-expr "`ss co temp`" = "checking-out temp/test4.txt" > /dev/null
 
-# multiple checkin
-echo "- multiple checkin"
-ss ci -c 'multiple checkin' test2.txt test3.txt
+test_status()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss status test1.txt > /dev/null
+}
 
-# recursive checkin
-echo "- recursive checkin"
-expr "`ss ci -c '' .`" = "checking-in ./temp/test4.txt" > /dev/null
 
-echo "- recursive checkin 2"
-touch test1.txt
-expr "`ss ci -c '' .`" = "? ./test1.txt" > /dev/null
-rm test1.txt
+test_dir()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss dir . | grep -q "^test1.txt"
+    ss dir -a . > /dev/null
+}
 
-# multiple history
-echo "- multiple history"
-ss history . test2.txt test3.txt > /dev/null
 
-# multiple diff
-echo "- multiple diff"
-ss co temp/test4.txt
-echo "diff" >> temp/test4.txt
-ss diff -du test2.txt test3.txt temp/test4.txt | grep -q "+diff"
+test_label()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss label -lalabel test1.txt
+    ss status test1.txt | grep -q "Last Label: *alabel"
+}
 
-# recursive diff
-echo "- recursive diff"
-ss diff -du . | grep -q "+diff"
 
-echo "- recursive diff 2"
-touch test5.txt
-ss diff -du . | grep -q "+diff"
-rm test5.txt
+test_cat()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss cat test1.txt > /dev/null
+    ss cat -h test1.txt | grep -q "^==== ";
+}
 
-echo "- diff return status"
-not ss diff -du temp/test4.txt > /dev/null
-not ss diff -du . > /dev/null
-ss revert -r temp/test4.txt
-ss diff -du temp/test4.txt
-ss diff -du .
-touch remove
-not ss diff -du .
-rm remove
 
-# multiple revert
-echo "- multiple revert"
-ss co test2.txt test3.txt
-ss revert test2.txt test3.txt
+test_cat2()
+{
+    echo test > test1.txt
+    ss add -c '' test1.txt
+    ss label -lalabel test1.txt
+    not ss cat test1.txt#0 2> /dev/null
+    not ss cat test1.txt#alabel 2> /dev/null
+    ss cat test1.txt#1 > /dev/null
+    not ss cat test1.txt@0 2> /dev/null
+    ss cat test1.txt@alabel > /dev/null
+}
 
-# recursive revert
-echo "- recursive revert"
-expr "`ss revert .`" = "reverted ./temp/test4.txt" > /dev/null
 
-# multiple status
-echo "- multiple status"
-ss status test2.txt test3.txt > /dev/null
+test_diff2()
+{
+    echo "rev1" > difftest
+    ss add -c '' difftest
+    test -z "`ss diff difftest`"
+    test -z "`ss diff difftest#1`"
+    ss co difftest
+    echo "rev2" > difftest
+    ss diff difftest | sed -e '1d' > difftest1
+    ss diff difftest#1 | sed -e '1d' > difftest2
+    cmp -s difftest1 difftest2
+}
 
-# multiple dir
-echo "- multiple dir"
-ss dir test2.txt test3.txt > /dev/null
 
-# multiple label
-echo "- multiple label"
-ss label -lanotherlabel test2.txt test3.txt
-ss status test2.txt | grep -q "Last Label: *anotherlabel"
+test_difftwo()
+{
+    echo "rev1" > difftest
+    ss add -c '' difftest
+    ss co difftest
+    echo "rev2" > difftest
+    ss diff difftest#1 | sed -e '1d' > difftest2
+    test -z "`ss diff2 difftest#1 difftest | sed -e '1d'`"
+    ss ci -c '' difftest
+    ss diff2 difftest#1 difftest#2 | sed -e '1d' > difftest1
+    cmp -s difftest1 difftest2
+}
 
-# multiple cat
-echo "- multiple cat"
-ss cat test2.txt test3.txt > /dev/null
-ss cat -h test2.txt test3.txt > /dev/null
 
-# multiple delete
-echo "- multiple delete"
-ss delete test2.txt test3.txt
+test_label2()
+{
+    echo "rev1" > labeltest
+    ss add -c '' labeltest
+    ss co labeltest
+    echo "rev2" > labeltest
+    ss ci -c '' labeltest
+    ss label -llabeltest labeltest#1
+    ss cat labeltest@labeltest | grep -q "^rev1$"
+    ss label -lnewlabel labeltest@labeltest
+    ss cat labeltest@newlabel | grep -q "^rev1$"
+    not ss label -llabeltext labeltest#1 2> /dev/null
+}
 
-# recursive delete
-echo "- recursive delete"
-expr "`ss delete temp`" = "deleting temp/test4.txt" > /dev/null
-test \! -d temp
 
-# multiple recover
-echo "- multiple recover"
-touch recover1 recover2
-ss add -c '' recover1 recover2
-ss delete recover1 recover2
-ss recover recover1 recover2 > /dev/null
-ss delete recover1 recover2
+test_label3()
+{
+    echo "rev1" > labeltest
+    ss add -c '' labeltest
+    ss label -lnewlabel labeltest
+    not ss label -l '1nvalid' labeltest@newlabel 2> /dev/null
+    ss label -l 'alph4num_3ric-la( la).' labeltest@newlabel
+    ss label -l newlabel 'labeltest@alph4num_3ric-la( la).'
+}
+
+
+test_delete()
+{
+    echo > test1.txt
+    ss add -c '' test1.txt
+    ss delete test1.txt
+    test \! -f test1.txt
+}
+
+
+test_delete2()
+{
+    touch deltwice
+    not ss delete deltwice 2> /dev/null
+    ss add -c '' deltwice
+    ss co deltwice
+    not ss delete deltwice 2> /dev/null
+    ss delete -f deltwice
+    touch deltwice
+    ss add -c '' deltwice
+    ss delete deltwice 2> /dev/null
+}
+
+
+test_delete3()
+{
+    mkdir d3
+    touch d3/d3
+    ss add -c '' d3/d3
+    ss delete d3/d3
+    touch d3
+    not ss add -c '' d3 2> /dev/null
+}
+
+
+test_delete4()
+{
+    # now be bastard: trick delete to actually >remove< d3 and then check
+    # the -f flag even with AUTOREC enabled. Yes, it's a bug(tm).
+    mkdir d3
+    touch d3/d3
+    ss add -c '' d3/d3
+    ss delete d3/d3
+    touch d3
+    chmod -w d3
+    ss delete d3
+    touch d3
+    ss add -c '' d3
+    not ss delete d3 2> /dev/null
+    ss delete -f d3
+}
+
+
+test_recover()
+{
+    echo test > recover
+    ss add -c '' recover
+    ss delete recover
+    ss recover recover > /dev/null
+    expr "`cat recover`" = "test" > /dev/null
+    ss delete recover
+}
+
+
+test_madd()
+{
+    touch test2.txt test3.txt
+    ss add -c 'multiple add' test2.txt test3.txt
+}
+
+
+test_radd()
+{
+    mkdir temp
+    touch temp/test4.txt
+    expr "`ss add -c '' .`" = "adding ./temp/test4.txt" > /dev/null
+}
+    
+
+test_mcheckout()
+{
+    touch test2.txt test3.txt
+    ss add -c 'multiple add' test2.txt test3.txt
+    ss co test2.txt test3.txt
+}
+
+
+test_rcheckout()
+{
+    mkdir temp
+    touch temp/test4.txt
+    ss add -c '' temp/test4.txt
+    expr "`ss co temp`" = "checking-out temp/test4.txt" > /dev/null
+}
+
+
+test_mcheckin()
+{
+    touch test2.txt test3.txt
+    ss add -c 'multiple add' test2.txt test3.txt
+    ss co test2.txt test3.txt
+    ss ci -c 'multiple checkin' test2.txt test3.txt
+}
+
+
+test_rcheckin()
+{
+    mkdir test
+    touch test/test4.txt
+    ss add -c '' test/test4.txt
+    ss co test/test4.txt
+    expr "`ss ci -c '' .`" = "checking-in ./test/test4.txt" > /dev/null
+}
+
+
+test_rcheckin2()
+{
+    touch test1.txt
+    expr "`ss ci -c '' .`" = "? ./test1.txt" > /dev/null
+    rm test1.txt
+}
+
+
+test_mhistory()
+{
+    touch test2.txt test3.txt
+    ss add -c 'multiple add' test2.txt test3.txt
+    ss history . test2.txt test3.txt > /dev/null
+}
+
+
+test_mdiff()
+{
+    mkdir temp
+    touch test2.txt test3.txt temp/test4.txt
+    ss add -c 'multiple add' test2.txt test3.txt temp/test4.txt
+    ss co temp/test4.txt
+    echo "diff" >> temp/test4.txt
+    ss diff -du test2.txt test3.txt temp/test4.txt | grep -q "+diff"
+}
+
+
+test_rdiff()
+{
+    echo > test1.txt
+    ss add -c '' test1.txt
+    ss co test1.txt
+    echo "diff" >> test1.txt
+    ss diff -du . | grep -q "+diff"
+}
+
+
+test_rdiff2()
+{
+    echo > test1.txt
+    ss add -c '' test1.txt
+    ss co test1.txt
+    echo "diff" >> test1.txt
+    touch test5.txt
+    ss diff -du . | grep -q "+diff"
+}
+
+
+test_diff_ret()
+{
+    mkdir temp
+    touch temp/test4.txt
+    ss add -c '' temp/test4.txt
+    ss co temp/test4.txt
+    echo "diff" >> temp/test4.txt
+    not ss diff -du temp/test4.txt > /dev/null
+    not ss diff -du . > /dev/null
+    ss revert -r temp/test4.txt
+    ss diff -du temp/test4.txt
+    ss diff -du .
+    touch remove
+    not ss diff -du .
+    rm remove
+}
+
+
+test_mrevert()
+{
+    touch test2.txt test3.txt
+    ss add -c '' test2.txt test3.txt
+    ss co test2.txt test3.txt
+    ss revert test2.txt test3.txt
+}
+
+
+test_rrevert()
+{
+    touch test2.txt test3.txt
+    ss add -c '' test2.txt test3.txt
+    mkdir temp
+    touch temp/test4.txt
+    ss add -c '' temp/test4.txt
+    ss co temp/test4.txt
+    expr "`ss revert .`" = "reverted ./temp/test4.txt" > /dev/null
+}
+
+
+test_mstatus()
+{
+    touch test2.txt test3.txt
+    ss add -c '' test2.txt test3.txt
+    ss status test2.txt test3.txt > /dev/null
+}
+
+
+test_mdir()
+{
+    touch test2.txt test3.txt
+    ss add -c '' test2.txt test3.txt
+    ss dir test2.txt test3.txt > /dev/null
+}
+
+
+test_mlabel()
+{
+    touch test2.txt test3.txt
+    ss add -c '' test2.txt test3.txt
+    ss label -lanotherlabel test2.txt test3.txt
+    ss status test2.txt | grep -q "Last Label: *anotherlabel"
+}
+
+
+test_mcat()
+{
+    touch test2.txt test3.txt
+    ss add -c '' test2.txt test3.txt
+    ss cat test2.txt test3.txt > /dev/null
+    ss cat -h test2.txt test3.txt > /dev/null
+}
+
+
+test_mdelete()
+{
+    touch test2.txt test3.txt
+    ss add -c '' test2.txt test3.txt
+    ss delete test2.txt test3.txt
+}
+
+
+test_rdelete()
+{
+    mkdir temp
+    touch temp/test4.txt
+    ss add -c '' temp/test4.txt
+    expr "`ss delete temp`" = "deleting temp/test4.txt" > /dev/null
+    test \! -d temp
+}
+
+
+test_mrecover()
+{
+    touch recover1 recover2
+    ss add -c '' recover1 recover2
+    ss delete recover1 recover2
+    ss recover recover1 recover2 > /dev/null
+    ss delete recover1 recover2
+}
+
 
 # check file consistency across calls
 fcheck()
@@ -368,19 +618,124 @@ fcheck()
     ss delete "$1"
 }
 
-echo "- empty file consistency"
-touch empty
-fcheck empty
 
-echo "- text file consistency"
-echo line1 > text
-echo line2 >> text
-fcheck text
+test_efc()
+{
+    touch empty
+    fcheck empty
+}
+
+
+test_tfc()
+{
+    echo line1 > text
+    echo line2 >> text
+    fcheck text
+}
+
+
+test_relup()
+{
+    mkdir reltest
+    touch reltest/test
+    ss add -c '' reltest/test
+    cd reltest
+    ss up ..
+    expr "`ss up ..`" = "" > /dev/null
+}
+
+
+test_cf()
+{
+    echo test > cftest.txt
+    ss add -c '' cftest.txt
+    rm -f cftest.txt
+    mkdir cftest.txt
+    expr "`ss get cftest.txt`" = "C cftest.txt" > /dev/null
+    expr "`ss get .`" = "C cftest.txt" > /dev/null
+    rmdir cftest.txt
+    ss get cftest.txt > /dev/null
+    test \! -w cftest.txt
+    ss delete cftest.txt
+}
+
+
+
+# single test execution
+if [ -n "$func" ]
+then
+    rt "$func" $func
+    echo "completed"
+    exit 0
+fi
+
+
+# test sequence
+echo "- time check part 1"
+echo "rev 1" > timecheck
+ss add -c '' timecheck
+oldtime="`ss log -m1 timecheck | sed -ne 's/.* Date: \([^\/]*\)\/\([^\/]*\)\/\([^ ]*\)   Time: \([^.]*\)\.\(.*\)/20\3\/\2\/\1:\4:\5:00/p'`"
+
+rt "add" test_add
+rt "add 2" test_add2
+rt "add 3" test_add3
+rt "checkout" test_checkout
+rt "checkin" test_checkin
+rt "checkin 2" test_checkin2
+rt "checkin 3" test_checkin3
+rt "get" test_get
+rt "recursive get" test_rget
+rt "recursive get 2" test_rget2
+rt "history" test_history
+rt "diff" test_diff
+rt "revert" test_revert
+rt "revert 2" test_revert2
+rt "revert 3" test_revert3
+rt "checkout 2" test_checkout2
+rt "status" test_status
+rt "dir" test_dir
+rt "label" test_label
+rt "cat" test_cat
+rt "cat 2" test_cat2
+rt "diff 2" test_diff2
+rt "diff2" test_difftwo
+rt "label 2" test_label2
+rt "label 3" test_label3
+rt "delete" test_delete
+rt "delete 2 (requires AUTOREC)" test_delete2
+rt "delete 3" test_delete3
+rt "delete 4" test_delete4
+rt "recover" test_recover
+rt "multiple add" test_madd
+rt "recursive add" test_radd
+rt "multiple checkout" test_mcheckout
+rt "recursive checkout" test_rcheckout
+rt "multiple checkin" test_mcheckin
+rt "recursive checkin" test_rcheckin
+rt "recursive checkin 2" test_rcheckin2
+rt "multiple history" test_mhistory
+rt "multiple diff" test_mdiff
+rt "recursive diff" test_rdiff
+rt "recursive diff 2" test_rdiff2
+rt "diff return status" test_diff_ret
+rt "multiple revert" test_mrevert
+rt "recursive revert" test_rrevert
+rt "multiple status" test_mstatus
+rt "multiple dir" test_mdir
+rt "multiple label" test_mlabel
+rt "multiple cat" test_mcat
+rt "multiple delete" test_mdelete
+rt "recursive delete" test_rdelete
+rt "multiple recover" test_mrecover
+rt "empty file consistency" test_efc
+rt "text file consistency" test_tfc
+rt "relative update" test_relup
+rt "conflict handling" test_cf
 
 # check time only at the end, as sourcesafe resolution seems to be limited
 # to minutes.... parse the log date to avoid time-skew issues.
 # Add "20" to the year to fix broken log date format...
-echo "- time check 2"
+echo "- time check part 2"
 ss co timecheck
 echo "rev 2" > timecheck
 ss ci -c '' timecheck
@@ -389,14 +744,7 @@ expr "`ss cat timecheck@$oldtime`" = "`ss cat timecheck#1`" > /dev/null
 expr "`ss cat timecheck@$curtime`" = "`ss cat timecheck#2`" > /dev/null
 ss delete timecheck
 
-echo "- relative update"
-mkdir reltest
-touch reltest/test
-ss add -c '' reltest/test
-cd reltest
-ss up ..
-expr "`ss up ..`" = "" > /dev/null
 
 # finished
-echo "completed"
+echo "completed ($failno failures)"
 exit 0
