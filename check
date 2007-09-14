@@ -389,7 +389,7 @@ test_radd()
 {
     mkdir temp
     touch temp/test4.txt
-    expr "`ss add -c '' .`" = "adding ./temp/test4.txt" > /dev/null
+    expr "`ss add -c '' .`" = "adding temp/test4.txt" > /dev/null
 }
     
 
@@ -425,14 +425,14 @@ test_rcheckin()
     touch test/test4.txt
     ss add -c '' test/test4.txt
     ss co test/test4.txt
-    expr "`ss ci -c '' .`" = "checking-in ./test/test4.txt" > /dev/null
+    expr "`ss ci -c '' .`" = "checking-in test/test4.txt" > /dev/null
 }
 
 
 test_rcheckin2()
 {
     touch test1.txt
-    expr "`ss ci -c '' .`" = "? ./test1.txt" > /dev/null
+    expr "`ss ci -c '' .`" = "? test1.txt" > /dev/null
     rm test1.txt
 }
 
@@ -512,7 +512,7 @@ test_rrevert()
     touch temp/test4.txt
     ss add -c '' temp/test4.txt
     ss co temp/test4.txt
-    expr "`ss revert .`" = "reverted ./temp/test4.txt" > /dev/null
+    expr "`ss revert .`" = "reverted temp/test4.txt" > /dev/null
 }
 
 
@@ -655,8 +655,19 @@ test_cf()
     expr "`ss get .`" = "C cftest.txt" > /dev/null
     rmdir cftest.txt
     ss get cftest.txt > /dev/null
-    test \! -w cftest.txt
-    ss delete cftest.txt
+}
+
+
+test_cf2()
+{
+    touch cftest.txt
+    ss add -c '' cftest.txt
+    rm -f cftest.txt
+    mkdir cftest.txt
+    touch cftest.txt/cftest.txt
+    chmod -w cftest.txt/cftest.txt
+    ss get . > /dev/null
+    test -f cftest.txt
 }
 
 
@@ -731,6 +742,7 @@ rt "empty file consistency" test_efc
 rt "text file consistency" test_tfc
 rt "relative update" test_relup
 rt "conflict handling" test_cf
+rt "conflict handling 2" test_cf2
 
 # check time only at the end, as sourcesafe resolution seems to be limited
 # to minutes.... parse the log date to avoid time-skew issues.

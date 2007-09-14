@@ -3,6 +3,7 @@ SSU 0.9:
 	* Fixed handling of symlinks inside the project root (incorrect symlink
           removal on update, incorrect mode change of pointed-to files,
           unmarked conflicts during updates).
+	* Fixed incomplete/partial update in presence of namespace clashes.
 
 
 SSU 0.8: Sat Dec 23 CET 2006

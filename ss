@@ -362,7 +362,7 @@ sub finddepth2(&@)
     {
       my $tmp = $_;
       my $oldcwd = cwd();
-      $_ = "$File::Find::dir/$_";
+      $_ = File::Spec->catdir($File::Find::dir, $_);
       chdir($initial);
       lstat($_);
       &$code();
@@ -395,22 +395,10 @@ sub getDir($$)
 
   # check each entry in the listing
   my %files;
-
   foreach $remote(split("\n", $buf))
   {
     my $file = getInvRelMap($remote, \@{$PARAMS{MAPS}}) or next;
-    $files{expCanonPath(rel2abs($file))} = 1;
-
-    lstat($file);
-    if(-e _ && !-f _) {
-      msg("C $file");
-    } else {
-      if(-w _) {
-	msg("O $file");
-      } else {
-	getFile($remote, $file) and msg("U $file");
-      }
-    }
+    $files{expCanonPath(rel2abs($file))} = [$remote, $file];
   }
 
   # At that point we should purge local files with no remote equivalents
@@ -419,14 +407,30 @@ sub getDir($$)
     finddepth2(
       sub
       {
-	if(-f _ && !-w _ && !defined($files{expCanonPath(rel2abs($_))}))
+	my $file = $_;
+	if(-f _ && !-w _ && !defined($files{expCanonPath(rel2abs($file))}))
 	{
-	  forceUnlink($_);
-	  prune(dirname($_));
-	  msg("D $_");
+	  forceUnlink($file);
+	  prune(dirname($file));
+	  msg("D $file");
 	}
       },
       $file);
+  }
+
+  foreach my $entry(values %files)
+  {
+    my ($remote, $file) = @$entry;
+    lstat($file);
+    if(-e _ && !-f _) {
+      finddepth2(sub{msg("C $_")}, $file);
+    } else {
+      if(-w _) {
+	msg("O $file");
+      } else {
+	getFile($remote, $file) and msg("U $file");
+      }
+    }
   }
 }
 
