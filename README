@@ -33,7 +33,7 @@ server runs as a stand-alone process unless you use some service helpers
 SourceSafe command-line client to be installed locally (usually installed
 automatically with the SourceSafe software).
 
-Only SourceSafe 6.0 has been tested.
+Only SourceSafe 6.0/2005 has been tested.
 
 Since SSU 0.7 the Digest::MD5 >= 2.11 module is now required (available from
 CPAN_, already installed on most system including ActivePerl).
@@ -59,10 +59,9 @@ replaced with something more readable in the future.
 Why SSU requires a Windows box?
 -------------------------------
 
-I've often been questioned about the requirement of the Windows counterpart,
-and why a tool that accesses the repository directly can't be developed
-instead. To understand the reasons, you need to understand how SourceSafe
-really works:
+I've often been questioned about this requirement, and why a tool that accesses
+the repository directly can't be developed instead: it can't be done due to the
+proprietary nature of the repository format.
 
 SourceSafe is a server-less design, there's no difference between the machine
 that hosts the repository (the SMB share server) and any other client. For this
@@ -77,7 +76,7 @@ This design has a number of vital issues:
    files. SMB is a NetBIOS service, which is problematic to run across Internet
    and extremely inefficient to access.
 2. The repository is stored in a custom undisclosed format, and thus can't be
-   accessed directly.
+   accessed directly without a lot of reverse-engineering.
 3. Since all clients access the repository without supervision, a client must
    be 100% compliant with SourceSafe semantics to avoid interoperability
    problems, and is responsible for the integrity of the data itself.
@@ -208,7 +207,7 @@ Configuration
 MAP
 ---
 
-Developers with experience with Perforce_ will be delighted to know that MAP
+Developers with experience with Perforce will be delighted to know that MAP
 works in the same concept as the "View" field. SSU performs a double path
 translation to give a "network transparent filesystem" independent of the
 original repository layout. Basically MAP is a list of pairs, each one
@@ -440,21 +439,11 @@ limited (due to SourceSafe limitations or development status) in some ways:
 Future developments
 -------------------
 
-The big mayor step in the SSU 1 development will be a new (and possibly better)
-cooperation model for SourceSafe. As already explained, two users cannot
-checkout the same file at the same time and the "multiple checkouts" option of
-SourceSafe does not allow for stable unattended operation.
+The big mayor step in the SSU 1 development should be a new (and possibly
+better) cooperation model for SourceSafe that removes the current "multiple
+checkout" limitation. Read HACKING for more details.
 
-My intention is to provide an alternate checkout method to the client
-interface. When the alternate checkout method is selected (manually or
-automatically), the original file is stored locally and the file is made
-read/write. Further updates will check for these files, and merge the changes
-by using them as common ancestors (thus moving the merge issue locally, using
-diff3 or the user's favored merge tool). Checkins will simply verify that the
-latest file was merged and locking the file in the repository for a couple of
-seconds.
-
-SSU however is not meant to be a fully fledged revision control system for
+Note that SSU is not meant to be a fully fledged revision control system for
 Unix, just an *aid* where SourceSafe access is required. Consider switching to
 a better revision control system instead.
 
@@ -591,6 +580,11 @@ history [-m] files:
 status files:
 	Shows file status (head revision number, modification dates, etc).
 
+opened [-aC] files:
+	Shows a list of opened (checked-out) files in the specified tree for
+	the current user. With '-C user', checked-out files for the specified
+	user (all users with '-a') are shown instead.
+
 diff [-d] files:
 	Diffs repository files (head version or older using revision syntax)
 	against local files. -d can be used to pass local options to the diff
@@ -683,8 +677,8 @@ Exit status
 Download
 ========
 
-SSU is located at http://www.yuv.info/~wavexx/hacks/ssu/ and distributed under
-the terms of the `GNU LGPL`_ license without *any* warranty. SSU is
+SSU is located at http://www.thregr.org/~wavexx/software/ssu/ and distributed
+under the terms of the `GNU LGPL`_ license without *any* warranty. SSU is
 copyright(c) 2005-2007 of Yuri D'Elia <wavexx@users.sf.net>.
 
 
@@ -738,13 +732,12 @@ Support/Mailing list
 ====================
 
 Subscribe to `ssu-users` by either sending an empty email to
-<minimalist@yuv.info> with the subject containing `subscribe ssu-users`, using
-GMane_ (group "gmane.comp.version-control.ssu.user") or by contacting the
+<minimalist@thregr.org> with the subject containing `subscribe ssu-users`,
+using GMane_ (group "gmane.comp.version-control.ssu.user") or by contacting the
 author at <wavexx@users.sf.net>. The list is about discussing bugs, usage
 issues and release announcements. The archives are accessible via web through
 http://news.gmane.org/gmane.comp.version-control.ssu.user or via news directly.
 
 
-.. _Perforce: http://www.perforce.com/
 .. _GNU LGPL: http://www.gnu.org/licenses/lgpl.html
 .. _GMane: http://www.gname.org/

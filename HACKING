@@ -1,0 +1,65 @@
+Hacking SSU
+===========
+
+Due to limited resources, SSU has several known issues that will require time
+before they will be resolved. For some of them, a solution is already known.
+Before starting to hack at random, here are some documented notes:
+
+.. contents::
+
+
+Better cooperation model
+------------------------
+
+Allowing the "multiple checkout" option to co-exist with SSU is a priority, but
+unfortunately there are no ways to trap the merge behaviour of "checkin" and
+bypass the visual merge tool. Maybe it's possible by using the DLL API, or some
+flags. Once some way is found to disable the automatic merge prompt, a simple
+3-way merge can be done directly on the client by using base/head revision
+numbers.
+
+
+Store file properties on the client
+-----------------------------------
+
+Revision numbers should be transferred when files are checked-out or updated,
+along with file properties (line endings, etc). Apparently a separate
+"properties" invocation is required, possibly breaking the atomicity of the
+call and halving the get/checkout/update performance (which is already
+horrible). File properties are needed to:
+
+- Implement binary file transfers.
+- Fix all operations that currently assume head versions instead of bases.
+
+
+Improved filesystem performance
+-------------------------------
+
+SSU protocol allows the server to compare files by checksums directly. If some
+way is found to invalidate a cache that's cheaper than accessing the file
+though ss.exe, than a local hash cache of file checksums could *really* improve
+performance with little effort. Maybe SourceSafe "physical" command may be used
+to compare file mtime's instead of using the API. Using the file revision as
+returned by "properties" has been proved to be too slow to be effective.
+
+
+Fix server-side mappings
+------------------------
+
+Fixed by improving "dir" to scan the configured mappings first, make a list of
+required databases, list those, and post-process the result according to the
+mappings again. This is currently not done due to performance reasons.
+
+
+Fix possible deadlocks due to user mis-validation
+-------------------------------------------------
+
+On login, all databases should be probed before continuing. This is currently
+not done due to performance reasons.
+
+
+Braindead "opened" output
+-------------------------
+
+File and directory names in ss.exe's output are truncated if excessively long,
+making it impossible to parse them correctly directly in "ssserv".

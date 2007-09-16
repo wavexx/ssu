@@ -1,5 +1,5 @@
 # Proto - ssu protocol shared definitions
-# Copyright(c) 2005 of wave++ (Yuri D'Elia)
+# Copyright(c) 2005-2007 of wave++ (Yuri D'Elia)
 # Distributed under GNU LGPL without ANY warranty.
 package Proto;
 use strict;
