@@ -26,7 +26,7 @@ my $VERSION	= "0.9";
 my $RC_PATH	= ".ssrc";
 my $D_PATH	= "$ENV{HOME}/.ss.d";
 my $EDITOR	= $ENV{VISUAL} || $ENV{EDITOR} || "vi";
-my $LEVELS	= 5;
+my $LEVELS	= 8;
 my %PARAMS;
 
 # command to handler maps.

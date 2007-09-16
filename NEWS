@@ -1,4 +1,4 @@
-SSU 0.9:
+SSU 0.9: Sun Sep 16 CET 2007
 
 	* Fixed handling of symlinks inside the project root (incorrect symlink
           removal on update, incorrect mode change of pointed-to files,
@@ -7,6 +7,7 @@ SSU 0.9:
 	* Implemented "opened".
 	* Certain commands (status, history, opened) no longer stop at the first
 	  file error when multiple files are specified.
+	* .ssrc search extended to 8 levels.
 
 
 SSU 0.8: Sat Dec 23 CET 2006
