@@ -670,6 +670,21 @@ test_cf2()
     test -f cftest.txt
 }
 
+test_cf3()
+{
+    touch cftest.txt
+    ss add -c '' cftest.txt
+    ss delete cftest.txt
+    mkdir cftest.txt
+    touch cftest.txt/cftest.txt
+    ss add -c '' cftest.txt/cftest.txt
+    rm -rf cftest.txt
+    touch cftest.txt
+    chmod 444 cftest.txt
+    ss get cftest.txt > /dev/null
+    test -f cftest.txt/cftest.txt
+}
+
 test_statusf()
 {
     echo test > test.txt
@@ -757,6 +772,7 @@ rt "text file consistency" test_tfc
 rt "relative update" test_relup
 rt "conflict handling" test_cf
 rt "conflict handling 2" test_cf2
+rt "conflict handling 3" test_cf3
 rt "status mixed failure" test_statusf
 rt "history mixed failure" test_historyf
 

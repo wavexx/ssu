@@ -475,19 +475,11 @@ sub get(\%@)
       msg("O $file");
     } else
     {
-      if(-f _ && -r _)
+      if(-f _ && -r _ && getFile($remote, $file)) {
+	msg("U $file");
+      } else
       {
-	# the file already exists, perform a normal update
-	getFile($remote, $file) and msg("U $file");
-	unless(-r $file)
-	{
-	  prune(dirname($file));
-	  msg("D $file");
-	}
-      }
-      else
-      {
-	# dir or unexistent local file
+	# dir, unexistent local file or no remote file
 	getDir($remote, $file);
       }
     }
