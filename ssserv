@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # ssserv - ssu perl server
-# Copyright(c) 2005-2006 of wave++ (Yuri D'Elia)
+# Copyright(c) 2005-2007 of wave++ (Yuri D'Elia)
 # Distributed under GNU LGPL without ANY warranty.
 use strict;
 use File::Basename qw{basename dirname};
@@ -19,7 +19,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.8";
+my $VERSION	= "0.9";
 my $INI_PATH	= "ssserv.ini";
 my %PARAMS;
 my %USER;
@@ -35,6 +35,7 @@ my %FMAP =
   $Proto::DELETE	=> \&delete,
   $Proto::HISTORY	=> \&history,
   $Proto::STATUS	=> \&status,
+  $Proto::OPENED	=> \&opened,
   $Proto::LABEL		=> \&label,
   $Proto::TEST		=> \&test,
   $Proto::CKSUM		=> \&ckSum,
@@ -772,6 +773,29 @@ sub status($)
 
   # send the status
   sendBuf("status", $output) or cmdFail(getErr());
+}
+
+sub opened($)
+{
+  # check arguments
+  my ($path, $user) = decArr(shift);
+  $path or return synFail("expecting a path");
+
+  # map the path
+  ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
+  $rel or return cmdFail("cannot map \"$path\"");
+
+  # prepare arguments
+  my @args = ("status", "\$/$rel", "-R", "-I-");
+  push(@args, "-U$user") if(defined($user));
+
+  # status seems to return broken return codes
+  my ($ret, $output, $errors) = ssStdExec(@args);
+  !$errors or return cmdFail("status: " . sanitize($errors));
+  $output = "" if($ret);
+
+  # send the status
+  sendBuf("opened", $output) or cmdFail(getErr());
 }
 
 sub label($)

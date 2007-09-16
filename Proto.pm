@@ -37,6 +37,7 @@ BEGIN
   $CKSUM	= 211;	# return the checksum of a file
   $ADD		= 212;	# add a new file
   $RECOVER	= 213;	# recover a deleted file or project
+  $OPENED	= 214;	# checkout status
 
   # shared codes
   $INFO		= 300;	# addictional protocol debugging

@@ -236,6 +236,18 @@ test_status()
 }
 
 
+test_opened()
+{
+    echo test > test.txt
+    ss add -c '' test.txt
+    expr "`ss opened .`" = "" > /dev/null
+    ss co test.txt
+    ss opened . | grep -q "^test.txt"
+    ss opened -a . | grep -q "^test.txt"
+    expr "`ss opened -Cbastardoperatorfromhell .`" = "" > /dev/null
+}
+
+
 test_dir()
 {
     echo test > test1.txt
@@ -749,6 +761,7 @@ rt "revert 2" test_revert2
 rt "revert 3" test_revert3
 rt "checkout 2" test_checkout2
 rt "status" test_status
+rt "opened" test_opened
 rt "dir" test_dir
 rt "label" test_label
 rt "cat" test_cat

@@ -40,6 +40,7 @@ my %CMAP =
   "dir"			=> ["a",	\&dirListing],
   "history"		=> ["m:",	\&history],
   "status"		=> ["",		\&status],
+  "opened"		=> ["aC:",	\&opened],
   "diff"		=> ["d:",	\&diff],
   "diff2"		=> ["d:",	\&diff2],
   "delete"		=> ["f",	\&delete],
@@ -80,15 +81,21 @@ sub fail(@)
 {
   $_ = join(" ", @_);
   print STDERR (basename($0) . ": $_\n");
+  exit(2);
+}
+
+# resumable failure
+sub err(@)
+{
+  $_ = join(" ", @_);
+  print STDERR (basename($0) . ": $_\n");
   $! = 2 and die;
 }
 
 # fail by protocol error
 sub protoFail()
 {
-  $_ = getErr();
-  print STDERR (basename($0) . ": $_\n");
-  exit(2);
+  fail(getErr());
 }
 
 # standard message
@@ -107,7 +114,7 @@ sub getAbsMap($$)
   my $rel = rel2abs($file);
 
   (my $map, my $dir, $rel) = getMap($rel, $maps);
-  ($map && $dir && $rel) or fail("\"$file\" not under ss control");
+  ($map && $dir && $rel) or err("\"$file\" not under ss control");
 
   return File::Spec->catdir($dir, $rel);
 }
@@ -257,7 +264,7 @@ sub version(\%@)
   my $fd = select(STDOUT);
   print "ss version $VERSION\n";
   print "Copyright 2005-2007 of wave++ (Yuri D'Elia) <wavexx\@users.sf.net>\n";
-  print "Distributed under GNU LGPL (v2 or above) without ANY warranty.\n";
+  print "Distributed under GNU LGPL without ANY warranty.\n";
   select($fd);
 }
 
@@ -307,7 +314,7 @@ sub rStatus(\%$)
   my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
   sendStr($Proto::STATUS, encArr($remote)) or protoFail();
   my ($void, $size) = expectCV($Proto::XFER, 2);
-  $void or fail(getErr());
+  $void or err(getErr());
   my $buf = recvBuf($size);
   defined($buf) or protoFail();
   
@@ -322,6 +329,33 @@ sub status(\%@)
   restartableCmd(\&rStatus, @_);
 }
 
+sub rOpened(\%$)
+{
+  my ($flags, $file) = @_;
+  
+  # get the status
+  my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
+  my @args = ($remote);
+  if($flags->{"C"} || !$flags->{"a"}) {
+    push(@args, $flags->{"C"} || $PARAMS{USER})
+  }
+  sendStr($Proto::OPENED, encArr(@args)) or protoFail();
+  my ($void, $size) = expectCV($Proto::XFER, 2);
+  $void or err(getErr());
+  my $buf = recvBuf($size);
+  defined($buf) or protoFail();
+  
+  # output
+  print STDOUT $buf;
+
+  return 1;
+}
+
+sub opened(\%@)
+{
+  restartableCmd(\&rOpened, @_);
+}
+
 sub rHistory(\%@)
 {
   my ($flags, $file) = @_;
@@ -331,7 +365,7 @@ sub rHistory(\%@)
   my @args = ($remote, ($flags->{"m"} || 0));
   sendStr($Proto::HISTORY, encArr(@args)) or protoFail();
   my ($void, $size) = expectCV($Proto::XFER, 2);
-  $void or fail(getErr());
+  $void or err(getErr());
   my $buf = recvBuf($size);
   defined($buf) or protoFail();
   

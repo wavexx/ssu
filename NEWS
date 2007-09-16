@@ -3,8 +3,9 @@ SSU 0.9:
 	* Fixed handling of symlinks inside the project root (incorrect symlink
           removal on update, incorrect mode change of pointed-to files,
           unmarked conflicts during updates).
-	* Fixed incomplete/partial update in presence of namespace clashes.
-	* Certain commands (status, history) no longer stop at the first
+	* Fixed incomplete updates in presence of namespace clashes.
+	* Implemented "opened".
+	* Certain commands (status, history, opened) no longer stop at the first
 	  file error when multiple files are specified.
 
 
