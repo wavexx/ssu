@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # ss - ssu perl client
-# Copyright(c) 2005-2006 of wave++ (Yuri D'Elia)
+# Copyright(c) 2005-2007 of wave++ (Yuri D'Elia)
 # Distributed under GNU LGPL without ANY warranty.
 use strict;
 use Cwd qw{cwd};
@@ -22,7 +22,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.8";
+my $VERSION	= "0.9";
 my $RC_PATH	= ".ssrc";
 my $D_PATH	= "$ENV{HOME}/.ss.d";
 my $EDITOR	= $ENV{VISUAL} || $ENV{EDITOR} || "vi";
@@ -80,13 +80,15 @@ sub fail(@)
 {
   $_ = join(" ", @_);
   print STDERR (basename($0) . ": $_\n");
-  exit(2);
+  $! = 2 and die;
 }
 
 # fail by protocol error
 sub protoFail()
 {
-  fail(getErr());
+  $_ = getErr();
+  print STDERR (basename($0) . ": $_\n");
+  exit(2);
 }
 
 # standard message
@@ -171,7 +173,8 @@ sub main()
   undef %flags;
   @ARGV = @args;
   getopts($handler->[0], \%flags) or exit(2);
-  exit(!(&{$handler->[1]}(\%flags, @ARGV)));
+  eval {$! = (!(&{$handler->[1]}(\%flags, @ARGV)))};
+  exit($!);
 }
 
 sub setup()
@@ -284,47 +287,63 @@ sub dirListing(\%@)
   return 1;
 }
 
-sub status(\%@)
+sub restartableCmd(&@)
 {
-  my ($flags, @files) = @_;
-
+  my ($func, $flags, @files) = @_;
+  my $ret = 1;
   foreach my $file(@files)
   {
-    # get the status
-    my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
-    sendStr($Proto::STATUS, encArr($remote)) or protoFail();
-    my ($void, $size) = expectCV($Proto::XFER, 2);
-    $void or protoFail();
-    my $buf = recvBuf($size);
-    defined($buf) or protoFail();
-
-    # output
-    print STDOUT $buf;
+    eval {&$func($flags, $file)};
+    $ret = 0 if($@);
   }
+  return $ret;
+}
+
+sub rStatus(\%$)
+{
+  my ($flags, $file) = @_;
+  
+  # get the status
+  my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
+  sendStr($Proto::STATUS, encArr($remote)) or protoFail();
+  my ($void, $size) = expectCV($Proto::XFER, 2);
+  $void or fail(getErr());
+  my $buf = recvBuf($size);
+  defined($buf) or protoFail();
+  
+  # output
+  print STDOUT $buf;
+
+  return 1;
+}
+
+sub status(\%@)
+{
+  restartableCmd(\&rStatus, @_);
+}
+
+sub rHistory(\%@)
+{
+  my ($flags, $file) = @_;
+
+  # get the history
+  my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
+  my @args = ($remote, ($flags->{"m"} || 0));
+  sendStr($Proto::HISTORY, encArr(@args)) or protoFail();
+  my ($void, $size) = expectCV($Proto::XFER, 2);
+  $void or fail(getErr());
+  my $buf = recvBuf($size);
+  defined($buf) or protoFail();
+  
+  # output
+  print STDOUT $buf;
 
   return 1;
 }
 
 sub history(\%@)
 {
-  my ($flags, @files) = @_;
-
-  foreach my $file(@files)
-  {
-    # get the history
-    my $remote = getAbsMap($file, \@{$PARAMS{MAPS}});
-    my @args = ($remote, ($flags->{"m"} || 0));
-    sendStr($Proto::HISTORY, encArr(@args)) or protoFail();
-    my ($void, $size) = expectCV($Proto::XFER, 2);
-    $void or protoFail();
-    my $buf = recvBuf($size);
-    defined($buf) or protoFail();
-
-    # output
-    print STDOUT $buf;
-  }
-
-  return 1;
+  restartableCmd(\&rHistory, @_);
 }
 
 sub getFile($$)
