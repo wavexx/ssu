@@ -158,6 +158,21 @@ test_rget2()
 }
 
 
+test_rget3()
+{
+    mkdir -p a/b/c
+    touch a/b/c/d
+    touch a/b/e
+    ss add -c '' a/b/e
+    ss delete a/b/e
+    touch a/b/e
+    touch a/f
+    chmod 444 a/b/c/d a/b/e a/f
+    ss get . > /dev/null
+    test \! -e a
+}
+
+
 test_history()
 {
     echo test > test1.txt
@@ -726,6 +741,7 @@ rt "checkin 3" test_checkin3
 rt "get" test_get
 rt "recursive get" test_rget
 rt "recursive get 2" test_rget2
+rt "recursive get 3" test_rget3
 rt "history" test_history
 rt "diff" test_diff
 rt "revert" test_revert

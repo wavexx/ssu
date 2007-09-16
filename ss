@@ -256,7 +256,7 @@ sub version(\%@)
 {
   my $fd = select(STDOUT);
   print "ss version $VERSION\n";
-  print "Copyright 2005-2006 of wave++ (Yuri D'Elia) <wavexx\@users.sf.net>\n";
+  print "Copyright 2005-2007 of wave++ (Yuri D'Elia) <wavexx\@users.sf.net>\n";
   print "Distributed under GNU LGPL (v2 or above) without ANY warranty.\n";
   select($fd);
 }
@@ -374,23 +374,15 @@ sub finddepth2(&@)
   use Cwd qw{chdir};
 
   my ($code, @files) = @_;
+  my @res;
+
   my $initial = cwd();
-
-  finddepth(
-    sub
-    {
-      my $tmp = $_;
-      my $oldcwd = cwd();
-      $_ = File::Spec->catdir($File::Find::dir, $_);
-      chdir($initial);
-      lstat($_);
-      &$code();
-      chdir($oldcwd);
-      $_ = $tmp;
-    },
-    @files);
-
+  finddepth(sub{push(@res, File::Spec->catdir($File::Find::dir, $_))}, @files);
   chdir($initial);
+
+  foreach(@res) {
+    lstat($_) and &$code();
+  };
 }
 
 sub rel2abs($)
