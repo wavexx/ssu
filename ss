@@ -22,11 +22,12 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.9";
+my $VERSION	= "0.10";
 my $RC_PATH	= ".ssrc";
 my $D_PATH	= "$ENV{HOME}/.ss.d";
 my $EDITOR	= $ENV{VISUAL} || $ENV{EDITOR} || "vi";
 my $LEVELS	= 8;
+my %SERVER;
 my %PARAMS;
 
 # command to handler maps.
@@ -47,6 +48,8 @@ my %CMAP =
   "label"		=> ["l:",	\&label],
   "cat"			=> ["h",	\&cat],
   "recover"		=> ["",		\&recover],
+  "monitor"		=> ["",		\&monitor],
+  "help"		=> ["",		\&help],
   "version"		=> ["",		\&version]
 );
 
@@ -194,7 +197,9 @@ sub setup()
   setupFd(*SFD);
 
   # perform authentication
-  my $str = expectC($Proto::LOGIN) or protoFail();
+  my ($c, $str, @info) = expectC($Proto::LOGIN) or protoFail();
+  ($SERVER{IP}, $SERVER{VERSION}) = decArr($info[0]) if(@info);
+
   sendStr($Proto::USRPWD, encArr($PARAMS{USER}, $PARAMS{PASS})) or protoFail();
   $str = expectC($Proto::READY) or protoFail();
 }
@@ -263,6 +268,7 @@ sub version(\%@)
 {
   my $fd = select(STDOUT);
   print "ss version $VERSION\n";
+  print "ssserv version " . ($SERVER{VERSION} || "unknown") . "\n";
   print "Copyright 2005-2007 of wave++ (Yuri D'Elia) <wavexx\@users.sf.net>\n";
   print "Distributed under GNU LGPL without ANY warranty.\n";
   select($fd);
@@ -1054,6 +1060,40 @@ sub recover(\%$)
   }
 
   return 1;
+}
+
+sub monitor(\%@)
+{
+  my ($flags, $file) = @_;
+
+  # get the output
+  sendStr($Proto::MONITOR);
+  my ($void, $size) = expectCV($Proto::XFER, 2);
+  $void or err(getErr());
+  my $buf = recvBuf($size);
+  defined($buf) or protoFail();
+  
+  # output
+  print STDOUT $buf;
+
+  return 1;
+}
+
+sub help(\%@)
+{
+  my ($flags, $file) = @_;
+
+  print STDOUT "Available subcommands (aliases):\n";
+
+  foreach my $cmd(sort(keys(%CMAP)))
+  {
+    print STDOUT "  $cmd";
+
+    my @aliases = grep {$_ and $AMAP{$_} eq $cmd} keys(%AMAP);
+    print STDOUT " (" . join(", ", sort(@aliases)) . ")" if(@aliases);
+
+    print STDOUT "\n";
+  }
 }
 
 

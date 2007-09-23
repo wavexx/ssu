@@ -40,6 +40,7 @@ my %FMAP =
   $Proto::TEST		=> \&test,
   $Proto::CKSUM		=> \&ckSum,
   $Proto::ADD		=> \&add,
+  $Proto::MONITOR	=> \&monitor,
   $Proto::RECOVER	=> \&recover
 );
 
@@ -167,7 +168,7 @@ sub child($$)
   $USER{PORT} = $port;
 
   # perform login immediately
-  sendStr($Proto::INFO, "welcome $USER{IP} to ssserv $VERSION");
+  sendStr($Proto::INFO, encArr($USER{IP}, $VERSION));
   login() or return 0;
 
   # main loop
@@ -965,6 +966,17 @@ sub recover($)
   $ret or return cmdFail("recover: " . sanitize($errors));
 
   return sendStr($Proto::READY);
+}
+
+sub monitor($)
+{
+  my $buf;
+
+  # compose the output
+  $buf = "hallo!\n";
+
+  # send the output
+  sendBuf("opened", $buf) or cmdFail(getErr());
 }
 
 

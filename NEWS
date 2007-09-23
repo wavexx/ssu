@@ -5,6 +5,7 @@ SSU 0.10:
         SourceSafe in safe circumstances, providing a mean speedup of 610%
         while accessing the cache, and a 2% time increase for the first time
         update of uncached files.
+	* Implemented "help" and "monitor" commands.
 
 
 SSU 0.9: Sun Sep 16 CET 2007

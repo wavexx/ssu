@@ -35,12 +35,15 @@ horrible). File properties are needed to:
 Improved filesystem performance
 -------------------------------
 
-SSU protocol allows the server to compare files by checksums directly. If some
-way is found to invalidate a cache that's cheaper than accessing the file
-though ss.exe, than a local hash cache of file checksums could *really* improve
-performance with little effort. Maybe SourceSafe "physical" command may be used
-to compare file mtime's instead of using the API. Using the file revision as
-returned by "properties" has been proved to be too slow to be effective.
+SSU protocol allows the server to compare files by checksums
+directly. Currently ssserv maps paths to filenames using the "physical"
+command, and then compares file mtimes while maintaining a local hash cache.
+
+More commands (besides "get" and "diff") could use/update this cache. Consider
+a passive and parallel update to update this cache.
+
+Directory listings (used very often for get commands) could be cached with the
+same method.
 
 
 Fix server-side mappings
@@ -63,3 +66,10 @@ Braindead "opened" output
 
 File and directory names in ss.exe's output are truncated if excessively long,
 making it impossible to parse them correctly directly in "ssserv".
+
+
+Improve "help" output
+---------------------
+
+Parse README and put help strings directly in a module, to provide a more
+user-friendly UI.

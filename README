@@ -533,7 +533,7 @@ Global options
 	Specify a different configuration file. If this option is not
 	specified, the environment variable `SSCONFIG` is first consulted for
 	an alternate path. If not set, ".ssrc" is searched in the current
-	directory, and up to 5 levels.
+	directory, and up to 8 levels.
 
 Commands
 ~~~~~~~~
@@ -610,8 +610,15 @@ label -l <label> files:
 	already-labeled revision through a numerical revision or date is not
 	allowed.
 
+help:
+	Show a list of available commands.
+
+monitor:
+	Show ssserv internal statistics and debugging informations. This output
+	is for debugging purposes only, and subject to change.
+
 version:
-	Show SSU version information.
+	Show SSU client/server version information.
 
 
 Aliases

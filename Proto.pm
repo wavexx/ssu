@@ -38,6 +38,7 @@ BEGIN
   $ADD		= 212;	# add a new file
   $RECOVER	= 213;	# recover a deleted file or project
   $OPENED	= 214;	# checkout status
+  $MONITOR	= 215;	# ssserv monitor
 
   # shared codes
   $INFO		= 300;	# addictional protocol debugging
@@ -88,6 +89,7 @@ sub recvStr()
   my $line;
   my $code;
   my $str;
+  my @info;
   my $fd = select();
 
   do
@@ -98,6 +100,7 @@ sub recvStr()
     {
       $code = $1;
       $str = $2;
+      push(@info, $str) if($code == $Proto::INFO);
     }
     else
     {
@@ -108,7 +111,7 @@ sub recvStr()
   }
   while($code == $Proto::INFO);
 
-  return ($code, $str);
+  return ($code, $str, @info);
 }
 
 sub encArr(@)
@@ -160,7 +163,7 @@ sub expectC(@)
   my @codes = @_;
 
   # fetch the data
-  my ($c, $str) = recvStr();
+  my ($c, $str, @info) = recvStr();
   (defined $c) or return undef;
 
   # check for remote errors
@@ -168,7 +171,7 @@ sub expectC(@)
   return setErr("unexpected answer") if(!defined(grep {$_ == $c} @codes));
 
   # allow expectC to be used within different contexts easily
-  return (wantarray? ($c, $str): $str);
+  return (wantarray? ($c, $str, @info): $str);
 }
 
 sub sendBuf($$)
