@@ -1,3 +1,12 @@
+SSU 0.10:
+
+	* Improved "update" and "diff" performance with the introduction of a
+        local ssserv hash cache. The cache allows ssserv to avoid using
+        SourceSafe in safe circumstances, providing a mean speedup of 610%
+        while accessing the cache, and a 2% time increase for the first time
+        update of uncached files.
+
+
 SSU 0.9: Sun Sep 16 CET 2007
 
 	* Fixed handling of symlinks inside the project root (incorrect symlink

@@ -19,7 +19,7 @@ use Cksum;
 
 
 # Some defaults
-my $VERSION	= "0.9";
+my $VERSION	= "0.10";
 my $INI_PATH	= "ssserv.ini";
 my %PARAMS;
 my %USER;
@@ -44,9 +44,12 @@ my %FMAP =
 );
 
 
-# global locks
+# shared data/locks
 my $output : shared;
 my $curprj : shared;
+my %cachedPaths : shared;
+my %cachedTimes : shared;
+my %cachedCksums : shared;
 
 
 sub fail(@)
@@ -360,8 +363,8 @@ sub ssStdTest($)
   # test for the presence of a path
   my $rel = shift;
 
-  # properties seems the fastest way
-  my ($ret) = ssStdExec("properties", "\$/$rel", "-I-");
+  # physical seems the fastest way
+  my ($ret) = ssStdExec("physical", "\$/$rel", "-I-");
   return $ret;
 }
 
@@ -370,7 +373,7 @@ sub ssStdDir($)
   # test for the presence of a directory/project
   my $rel = shift;
 
-  # properties seems the fastest way
+  # Current Project ("cp") seems the fastest way
   my $ret;
   {
     lock($curprj);
@@ -405,6 +408,83 @@ sub readFile($)
   return $buf;
 }
 
+sub mTime($)
+{
+  return (stat(shift))[9];
+}
+
+sub getFile($$)
+{
+  my ($rel, $version) = @_;
+
+  # fetch the file
+  my @args = ("get", "\$/$rel", "-W", "-I-Y");
+  push(@args, "-V$version") if(defined($version));
+  my ($ret, $output, $errors) = ssStdExec(@args);
+  $ret or return ($ret, undef, "get: " . sanitize($errors));
+  my $buf = readFile(File::Spec->catfile($USER{WORK}, basename($rel)));
+  return ($ret, $buf, $!);
+}
+
+# return a list of (file checksum, contents, errors), by accessing the shared
+# checksum hash cache. cksum is 'undef' when the file has changed and does not
+# exist anymore, with errors containing the failed command output. contents is
+# 'undef' if the file didn't change since last access (no additional get was
+# performed). only the head version is kept, to keep the hash small.
+sub peekFile($$)
+{
+  my ($rel, $version) = @_;
+  my $key = "$USER{SSDIR}\0$rel";
+
+  # ensure physical association is not broken while updating the cache
+  lock(%cachedPaths);
+
+  my $refreshed = 0;
+  if(!defined($cachedPaths{$key}))
+  {
+    # physical filename not known
+    my ($ret, $output, $errors) = ssStdExec("physical", "\$/$rel", "-I-");
+    $ret or return (undef, undef, "physical: " . sanitize($errors));
+    my ($index) = ($output =~ /(\S+)$/);
+    my $dataPath = File::Spec->catdir(substr($index, 0, 1), $index);
+    $cachedPaths{$key} = $dataPath;
+    $refreshed = 1;
+  }
+
+  my $dataPath = File::Spec->catfile($USER{SSDIR}, "data", $cachedPaths{$key});
+  my $dataTime = mTime($dataPath);
+  if(!$dataTime)
+  {
+    # data file was removed, need to refresh physical association
+    undef($cachedPaths{$key});
+    undef($cachedTimes{$key});
+    undef($cachedCksums{$key});
+    return (undef, undef, "peek: unable to stat physical file") if($refreshed);
+    return peekFile($rel, $version);
+  }
+
+  if(defined($cachedTimes{$key}) && ($cachedTimes{$key} == $dataTime)
+     && !defined($version))
+  {
+    # no detectable change, head version requested
+    return ($cachedCksums{$key}, undef, undef);
+  }
+
+  # file changed or old version requested
+  my ($ret, $dataBuf, $errors) = getFile($rel, $version);
+  $ret or return (undef, undef, $errors);
+  my $dataCksum = cksumBuf($dataBuf);
+
+  if(!defined($version))
+  {
+    # store new head data
+    $cachedTimes{$key} = $dataTime;
+    $cachedCksums{$key} = $dataCksum;
+  }
+
+  return ($dataCksum, $dataBuf, undef);
+}
+
 sub get($)
 {
   # check arguments
@@ -430,13 +510,22 @@ sub get($)
   # map and fetch the file
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
+  my ($dataCksum, $dataBuf, $errors) = peekFile($rel, $version);
+  $errors and cmdFail($errors);
 
-  my @args = ("get", "\$/$rel", "-W", "-I-Y");
-  push(@args, "-V$version") if(defined($version));
-  my ($ret, $output, $errors) = ssStdExec(@args);
-  $ret or return cmdFail("get: " . sanitize($errors));
+  # check cksum
+  if(defined($cksum) && ($dataCksum eq $cksum)) {
+    return sendStr($Proto::READY);
+  }
 
-  sendFileCond(File::Spec->catfile($USER{WORK}, basename($rel)), $cksum);
+  # fetch the file
+  if(!defined($dataBuf))
+  {
+    (my $ret, $dataBuf, $errors) = getFile($rel, $version);
+    $ret or return cmdFail($errors);
+  }
+
+  sendBuf(basename($rel), $dataBuf) or cmdFail(getErr());
 }
 
 sub sendFileCond($$)
@@ -852,17 +941,14 @@ sub ckSum($)
   my ($path) = decArr(shift);
   $path or return synFail("expecting a path");
 
-  # map the path
+  # map and fetch the checksum
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
-
-  # fetch the file
-  my ($ret, $output, $errors) = ssStdExec("get", "\$/$rel", "-W", "-I-Y");
-  $ret or return cmdFail("get: " . sanitize($errors));
+  my ($dataCksum, $dataBuf, $errors) = peekFile($rel, undef);
+  $errors and cmdFail($errors);
 
   # return the checksum
-  my $cksum = cksumFile(File::Spec->catfile($USER{WORK}, basename($rel)));
-  return (defined($cksum)? sendStr($Proto::READY, encArr($cksum)): cmdFail($!));
+  return sendStr($Proto::READY, encArr($dataCksum));
 }
 
 sub recover($)
