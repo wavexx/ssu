@@ -92,7 +92,8 @@ sub err(@)
 {
   $_ = join(" ", @_);
   print STDERR (basename($0) . ": $_\n");
-  $! = 2 and die;
+  $! = 2;
+  die;
 }
 
 # fail by protocol error
