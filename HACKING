@@ -36,14 +36,15 @@ Improved filesystem performance
 -------------------------------
 
 SSU protocol allows the server to compare files by checksums
-directly. Currently ssserv maps paths to filenames using the "physical"
-command, and then compares file mtimes while maintaining a local hash cache.
+directly. Currently ssserv maps SourceSafe paths to filenames using the
+"physical" command, and then compares file mtimes while maintaining a local
+hash cache to reduces the amount of time taken by "ss.exe".
 
-More commands (besides "get" and "diff") could use/update this cache. Consider
-a passive and parallel update to update this cache.
+More commands (besides "get" and "diff") could use/update this cache. Also,
+consider a passive and parallel thread to update this cache.
 
 Directory listings (used very often for get commands) could be cached with the
-same method.
+same method, provided that the whole hierarchy is checked.
 
 
 Fix server-side mappings
@@ -72,4 +73,4 @@ Improve "help" output
 ---------------------
 
 Parse README and put help strings directly in a module, to provide a more
-user-friendly UI.
+user-friendly interface.

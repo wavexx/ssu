@@ -611,7 +611,7 @@ label -l <label> files:
 	allowed.
 
 help:
-	Show a list of available commands.
+	Show a list of available commands and their aliases.
 
 monitor:
 	Show ssserv internal statistics and debugging informations. This output

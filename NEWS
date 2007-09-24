@@ -1,4 +1,4 @@
-SSU 0.10:
+SSU 0.10: Mon Sep 24 CEST 2007
 
 	* Improved "update" and "diff" performance with the introduction of a
         local ssserv hash cache. The cache allows ssserv to avoid using
