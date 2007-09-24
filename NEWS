@@ -1,10 +1,10 @@
 SSU 0.10: Mon Sep 24 CEST 2007
 
 	* Improved "update" and "diff" performance with the introduction of a
-        local ssserv hash cache. The cache allows ssserv to avoid using
-        SourceSafe in safe circumstances, providing a mean speedup of 610%
-        while accessing the cache, and a 2% time increase for the first time
-        update of uncached files.
+          local ssserv hash cache. The cache allows ssserv to avoid using
+          SourceSafe in safe circumstances, providing a mean speedup of 610%
+          while accessing the cache, and a 2% time increase for the first time
+          update of uncached files.
 	* Implemented "help" and "monitor" commands.
 
 
