@@ -7,6 +7,7 @@ use File::Basename qw{basename dirname};
 use File::Temp qw{tempfile tempdir};
 use File::Path qw{mkpath rmtree};
 use Getopt::Std qw{getopts};
+use Time::HiRes qw{gettimeofday tv_interval};
 use IO::Socket;
 require File::Spec;
 use threads;
@@ -48,6 +49,7 @@ my %FMAP =
 # shared data/locks
 my $output : shared;
 my $curprj : shared;
+my %counters : shared;
 my %cachedPaths : shared;
 my %cachedTimes : shared;
 my %cachedCksums : shared;
@@ -96,7 +98,7 @@ sub main()
   mkpath($PARAMS{WORK});
   (-d $PARAMS{TEMP} and -d $PARAMS{WORK}) or
       fail("unable to create work directories");
-  
+
   # start the server
   server();
 }
@@ -156,7 +158,12 @@ sub childMain($$)
   my ($port, $addr) = sockaddr_in($data);
   my $oldFd = select();
   setupFd($fd);
+
+  # NOTE: times is useless on WIN32, use HiRes and count real time instead.
+  my $times = [gettimeofday()];
   child($port, $addr);
+  addCounter("ssservtimes", tv_interval($times, [gettimeofday()]));
+
   select($oldFd);
   close($fd);
 }
@@ -166,10 +173,12 @@ sub child($$)
   my ($port, $addr) = @_;
   $USER{IP} = inet_ntoa($addr);
   $USER{PORT} = $port;
+  addCounter("connections");
 
   # perform login immediately
   sendStr($Proto::INFO, encArr($USER{IP}, $VERSION));
   login() or return 0;
+  addCounter("logins");
 
   # main loop
   while(1)
@@ -179,10 +188,12 @@ sub child($$)
     $code or last;
 
     # dispatch
+    addCounter("commands");
     my $handler = $FMAP{$code};
     if($handler)
     {
       &$handler($str) or last;
+      addCounter("successes");
       ssClean();
     }
     else {
@@ -215,6 +226,13 @@ sub intFail($)
   msg(@_);
   sendStr($Proto::ERROR, "server failure");
   return 0;
+}
+
+sub addCounter($@)
+{
+  my ($counter, $amount) = @_;
+  lock(%counters);
+  $counters{$counter} = ($counters{$counter} || 1) + ($amount || 1);
 }
 
 sub login()
@@ -250,7 +268,7 @@ sub login()
     ss whoami -I- $argUser
   };
   close $tmpFd;
-  
+
   # fire it up
   open(my $batchFd, "|\"$batch\" 2>NUL >NUL");
   print $batchFd "\n\n";
@@ -332,8 +350,9 @@ sub ssExec($@)
     ss $argList $argUser
   };
   close $tmpFd;
-  
+
   # fire it up
+  my $times = [gettimeofday()];
   my $output;
   open(my $batchFd, "\"$batch\" 2> \"$error\"|");
   while(<$batchFd>) {
@@ -351,6 +370,7 @@ sub ssExec($@)
   close($errFd);
   unlink($error);
 
+  addCounter("sstimes", tv_interval($times, [gettimeofday()]));
   return ($ret, $output, $errors);
 }
 
@@ -439,6 +459,7 @@ sub peekFile($$)
 
   # ensure physical association is not broken while updating the cache
   lock(%cachedPaths);
+  addCounter("peeks");
 
   my $refreshed = 0;
   if(!defined($cachedPaths{$key}))
@@ -457,9 +478,10 @@ sub peekFile($$)
   if(!$dataTime)
   {
     # data file was removed, need to refresh physical association
-    undef($cachedPaths{$key});
-    undef($cachedTimes{$key});
-    undef($cachedCksums{$key});
+    delete($cachedPaths{$key});
+    delete($cachedTimes{$key});
+    delete($cachedCksums{$key});
+    addCounter("misses");
     return (undef, undef, "peek: unable to stat physical file") if($refreshed);
     return peekFile($rel, $version);
   }
@@ -468,6 +490,7 @@ sub peekFile($$)
      && !defined($version))
   {
     # no detectable change, head version requested
+    addCounter("hits");
     return ($cachedCksums{$key}, undef, undef);
   }
 
@@ -512,7 +535,7 @@ sub get($)
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
   my ($dataCksum, $dataBuf, $errors) = peekFile($rel, $version);
-  $errors and cmdFail($errors);
+  $dataCksum or return cmdFail($errors);
 
   # check cksum
   if(defined($cksum) && ($dataCksum eq $cksum)) {
@@ -615,7 +638,7 @@ sub fixVersion($)
     unless(defined($hh)) {
       $hh = $mm = $ss = 0;
     }
-    
+
     return sprintf("d%02d/%02d/%04d;%02d:%02d:%02d",
 		   $d, $m, $y, $hh, $mm, $ss);
   }
@@ -734,7 +757,7 @@ sub parseListing($$)
   # split for each line first
   my @lines = split(/\n/, $output);
   pop(@lines); pop(@lines);
-  
+
   my $curdir = undef;
   foreach(@lines)
   {
@@ -777,7 +800,7 @@ sub dirListing($)
   $ret or return cmdFail("invalid path");
 
   # parse the listing
-  my $result;
+  my $result = "";
   foreach(parseListing($rel, $output)) {
     $result .= (publicCanon(File::Spec->catdir($map, $_)) . "\n");
   }
@@ -823,7 +846,7 @@ sub delete($)
     my $base = dirname($rel);
     ssRmPath($base) if($base ne File::Spec->curdir());
   }
-  
+
   return sendStr($Proto::READY);
 }
 
@@ -913,7 +936,7 @@ sub label($)
   push(@args, "-V$version") if(defined($version));
   my ($ret, $output, $errors) = ssStdExec(@args);
   $ret or return cmdFail("label: " . sanitize($errors));
-  
+
   return sendStr($Proto::READY);
 }
 
@@ -946,7 +969,7 @@ sub ckSum($)
   ($USER{SSDIR}, my $rel) = getRelMap($path, \@{$PARAMS{MAPS}});
   $rel or return cmdFail("cannot map \"$path\"");
   my ($dataCksum, $dataBuf, $errors) = peekFile($rel, undef);
-  $errors and cmdFail($errors);
+  $dataCksum or return cmdFail($errors);
 
   # return the checksum
   return sendStr($Proto::READY, encArr($dataCksum));
@@ -970,13 +993,22 @@ sub recover($)
 
 sub monitor($)
 {
-  my $buf;
+  my $buf = "";
 
-  # compose the output
-  $buf = "hallo!\n";
+  lock(%counters);
+
+  # immediate values
+  while(my ($counter, $value) = each(%counters)) {
+    $buf .= "$counter=$value\n";
+  }
+
+  # derived values
+  if(defined($counters{"peeks"}) && defined($counters{"hits"})) {
+    $buf .= sprintf("hitrate=%.3f\n", $counters{"hits"} / $counters{"peeks"});
+  }
 
   # send the output
-  sendBuf("opened", $buf) or cmdFail(getErr());
+  sendBuf("monitor", $buf) or cmdFail(getErr());
 }
 
 

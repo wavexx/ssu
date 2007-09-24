@@ -697,6 +697,7 @@ test_cf2()
     test -f cftest.txt
 }
 
+
 test_cf3()
 {
     touch cftest.txt
@@ -712,6 +713,7 @@ test_cf3()
     test -f cftest.txt/cftest.txt
 }
 
+
 test_statusf()
 {
     echo test > test.txt
@@ -719,11 +721,18 @@ test_statusf()
     ss status test test.txt | grep -q "^File:"
 }
 
+
 test_historyf()
 {
     echo test > test.txt
     ss add -c '' test.txt
     ss history test test.txt | grep -q "^\**  Version"
+}
+
+
+test_monitor()
+{
+    ss monitor > /dev/null
 }
 
 
@@ -804,6 +813,7 @@ rt "conflict handling 2" test_cf2
 rt "conflict handling 3" test_cf3
 rt "status mixed failure" test_statusf
 rt "history mixed failure" test_historyf
+rt "monitor" test_monitor
 
 # check time only at the end, as sourcesafe resolution seems to be limited
 # to minutes.... parse the log date to avoid time-skew issues.
