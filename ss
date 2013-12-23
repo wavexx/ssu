@@ -270,7 +270,7 @@ sub version(\%@)
   my $fd = select(STDOUT);
   print "ss version $VERSION\n";
   print "ssserv version " . ($SERVER{VERSION} || "unknown") . "\n";
-  print "Copyright 2005-2007 of wave++ (Yuri D'Elia) <wavexx\@users.sf.net>\n";
+  print "Copyright 2005-2007 of wave++ (Yuri D'Elia) <wavexx\@thregr.org>\n";
   print "Distributed under GNU LGPL without ANY warranty.\n";
   select($fd);
 }

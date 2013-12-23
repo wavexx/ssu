@@ -686,7 +686,7 @@ Download
 
 SSU is located at http://www.thregr.org/~wavexx/software/ssu/ and distributed
 under the terms of the `GNU LGPL`_ license without *any* warranty. SSU is
-copyright(c) 2005-2007 of Yuri D'Elia <wavexx@users.sf.net>.
+copyright(c) 2005-2007 of Yuri D'Elia <wavexx@thregr.org>.
 
 
 SourceSafe tips
@@ -741,7 +741,7 @@ Support/Mailing list
 Subscribe to `ssu-users` by either sending an empty email to
 <ssu-users+subscribe@thregr.org>, using GMane_ (group
 "gmane.comp.version-control.ssu.user") or by contacting the author at
-<wavexx@users.sf.net>. The list is about discussing bugs, usage issues and
+<wavexx@thregr.org>. The list is about discussing bugs, usage issues and
 release announcements. The archives are accessible via web through
 http://news.gmane.org/gmane.comp.version-control.ssu.user or via news directly.
 
