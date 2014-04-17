@@ -747,4 +747,4 @@ http://news.gmane.org/gmane.comp.version-control.ssu.user or via news directly.
 
 
 .. _GNU LGPL: http://www.gnu.org/licenses/lgpl.html
-.. _GMane: http://www.gname.org/
+.. _GMane: http://www.gmane.org/
